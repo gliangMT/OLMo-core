@@ -171,7 +171,7 @@ class ModelLadder(Config):
     """The data loader configuration to use for each run."""
     instance_sources: list[InstanceSourceConfig]
     """The instance sources to use for each run."""
-    sequence_length: int = 4096
+    sequence_length: int = 8192
     """The sequence length to train each run on."""
     tokenizer: TokenizerConfig
     """The tokenizer to use."""
@@ -210,12 +210,13 @@ class ModelLadder(Config):
             f"Dry run for model size {size_spec}:\n"
             f" ❯ Actual number of non-embedding params is {format_count(num_params)}\n"
             f" ❯ Target batch size is {target_global_batch_size:,d} tokens\n"
-            f" ❯ Actual batch size is {global_batch_size:,d} tokens "
-            f"({global_batch_size // self.sequence_length:,d} instances)\n"
-            f" ❯ Micro-batch per device size is {device_microbatch_size:,d} tokens "
-            f"({device_microbatch_size // self.sequence_length} instances) with {num_grad_accum_steps:,d} grad accumulation steps\n"
-            f" ❯ Requires {requested_devices} out of {self.max_devices} devices, "
-            f"with a data-parallel world size of {dp_world_size:,d}"
+            f" ❯ Actual batch size is {global_batch_size:,d} tokens, which is "
+            f"{global_batch_size // self.sequence_length:,d} instance(s)\n"
+            f" ❯ Micro-batch size per device size {device_microbatch_size:,d} tokens, which is "
+            f"{device_microbatch_size // self.sequence_length} instance(s)\n"
+            f" ❯ So there will be {num_grad_accum_steps:,d} grad accumulation step(s) per batch\n"
+            f" ❯ And the run requires {requested_devices} out of {self.max_devices} devices, "
+            f"with a data-parallel world size of {dp_world_size:,d}."
         )
         log.info("Plotting LR schedule...")
         self.run_configurator.plot_lr_schedule(num_params, batch_size=global_batch_size)

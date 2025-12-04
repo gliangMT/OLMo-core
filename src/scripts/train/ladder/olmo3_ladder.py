@@ -86,7 +86,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sequence-length",
         type=int,
-        default=4 * 1024,
+        default=8 * 1024,
         help="The sequence length to configure the ladder with.",
     )
     parser.add_argument(
