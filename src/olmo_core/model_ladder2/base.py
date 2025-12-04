@@ -27,6 +27,8 @@ from olmo_core.train import (
 )
 from olmo_core.train.train_module import TrainModule
 
+from .utils import format_count
+
 log = logging.getLogger(__name__)
 
 
@@ -206,6 +208,7 @@ class ModelLadder(Config):
 
         log.info(
             f"Dry run for model size {size_spec}:\n"
+            f" ❯ Actual number of non-embedding params is {format_count(num_params)}\n"
             f" ❯ Target batch size is {target_global_batch_size:,d} tokens\n"
             f" ❯ Actual batch size is {global_batch_size:,d} tokens "
             f"({global_batch_size // self.sequence_length:,d} instances)\n"

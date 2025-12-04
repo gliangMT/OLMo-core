@@ -517,7 +517,7 @@ class TransformerConfig(ModelConfig):
     @classmethod
     def olmo2_600M(cls, vocab_size: int, **kwargs) -> "TransformerConfig":
         return cls.llama_like(
-            d_model=1344,
+            d_model=kwargs.pop("d_model", 1344),
             hidden_size_multiplier=1.5,
             n_layers=kwargs.pop("n_layers", 16),
             n_heads=kwargs.pop("n_heads", 16),
@@ -693,6 +693,7 @@ class TransformerConfig(ModelConfig):
         """
         config = cls.olmo2_600M(
             vocab_size=vocab_size,
+            d_model=kwargs.pop("d_model", 1280),
             sliding_window=kwargs.pop(
                 "sliding_window",
                 SlidingWindowAttentionConfig(

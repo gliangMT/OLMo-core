@@ -3,13 +3,13 @@ def format_count(count: int) -> str:
     if count < 1_000:
         return f"{count}"
     elif count < 1_000_000:
-        return f"{count / 1_000:.1f}K"
+        return f"{count / 1_000:.1f}K".replace(".0", "")
     elif count < 1_000_000_000:
-        return f"{count / 1_000_000:.1f}M"
+        return f"{count / 1_000_000:.1f}M".replace(".0", "")
     elif count < 1_000_000_000_000:
-        return f"{count / 1_000_000_000:.1f}B"
+        return f"{count / 1_000_000_000:.1f}B".replace(".0", "")
     else:
-        return f"{count / 1_000_000_000_000:.1f}T"
+        return f"{count / 1_000_000_000_000:.1f}T".replace(".0", "")
 
 
 def format_tokens(tokens: int) -> str:
