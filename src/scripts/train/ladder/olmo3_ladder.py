@@ -238,7 +238,7 @@ def launch_run(args: argparse.Namespace):
     ladder = configure_ladder(args)
     launcher = configure_launcher(args, ladder, "run")
     log.info(f"Launching ladder run for size {args.size}...")
-    log.info(f"Resultings will be saved to {ladder.get_save_folder(args.size)}")
+    log.info(f"Results will be saved to {ladder.get_save_folder(args.size)}")
     launcher.launch(follow=True, slack_notifications=False)
 
 
