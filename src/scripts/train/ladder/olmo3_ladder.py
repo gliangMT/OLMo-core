@@ -173,7 +173,7 @@ def configure_launcher(
     args: argparse.Namespace, ladder: ModelLadder, cmd: str
 ) -> BeakerLaunchConfig:
     ladder = configure_ladder(args)
-    num_gpus = ladder.get_num_devices_for_run(args.size)
+    num_gpus = ladder.get_num_devices(args.size)
     assert (num_gpus % 8 == 0) or num_gpus < 8
     launch_config = build_launch_config(
         cmd=[sys.argv[0], cmd] + sys.argv[2:],
@@ -202,6 +202,10 @@ def main():
         benchmark(args)
     elif args.cmd == "launch_benchmark":
         launch_benchmark(args)
+    elif args.cmd == "run":
+        run(args)
+    elif args.cmd == "launch_run":
+        launch_run(args)
     else:
         raise NotImplementedError(f"Command '{args.cmd}' is not implemented.")
 
@@ -221,6 +225,20 @@ def launch_benchmark(args: argparse.Namespace):
     prepare_cli_environment()
     ladder = configure_ladder(args)
     launcher = configure_launcher(args, ladder, "benchmark")
+    launcher.launch(follow=True, slack_notifications=False)
+
+
+def run(args: argparse.Namespace):
+    ladder = configure_ladder(args)
+    ladder.run(args.size)
+
+
+def launch_run(args: argparse.Namespace):
+    prepare_cli_environment()
+    ladder = configure_ladder(args)
+    launcher = configure_launcher(args, ladder, "run")
+    log.info(f"Launching ladder run for size {args.size}...")
+    log.info(f"Resultings will be saved to {ladder.get_save_folder(args.size)}")
     launcher.launch(follow=True, slack_notifications=False)
 
 

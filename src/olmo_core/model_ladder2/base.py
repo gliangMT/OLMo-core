@@ -180,6 +180,21 @@ class ModelLadder(Config):
     backend: str = "cpu:gloo,cuda:nccl"
     """The distributed backend to use for each run."""
 
+    def __post_init__(self):
+        if self.max_devices <= 0:
+            raise OLMoConfigurationError("max_devices must be a positive integer.")
+        for size_spec in self.sizes:
+            min_devices, _ = self.model_configurator.configure_minimal_device_mesh_spec(
+                size_spec=size_spec,
+                sequence_length=self.sequence_length,
+                device_type=self.device_type,
+            )
+            if min_devices > self.max_devices:
+                raise OLMoConfigurationError(
+                    f"Model of size {size_spec} requires at least {min_devices} devices, "
+                    f"but max_devices is set to {self.max_devices}."
+                )
+
     @property
     def work_dir(self) -> PathOrStr:
         return "./cache" if io.is_url(self.dir) else str(io.join_path(self.dir, "cache"))
@@ -321,12 +336,15 @@ class ModelLadder(Config):
         """Get the actual number of non-embedding parameters for a model of the given size spec."""
         return self.get_model_config(size_spec).num_non_embedding_params
 
-    def get_num_devices_for_run(self, size_spec: str) -> int:
+    def get_num_devices(self, size_spec: str) -> int:
         """Get the number of devices that would be used for a run of the given size spec."""
         _, _, num_devices, _ = self._configure_batch_size_and_num_devices(
             size_spec, self.get_num_params(size_spec)
         )
         return num_devices
+
+    def get_save_folder(self, size_spec: str) -> str:
+        return str(io.join_path(self.dir, size_spec))
 
     def _configure_batch_size_and_num_devices(
         self, size_spec: str, num_params: int
@@ -392,7 +410,7 @@ class ModelLadder(Config):
         for_benchmarking: bool = False,
     ) -> TrainerConfig:
         run_name = f"{self.name}-{size_spec}"
-        save_folder = io.join_path(self.dir, size_spec)
+        save_folder = self.get_save_folder(size_spec)
         duration = self.run_configurator.configure_duration(num_params)
 
         # Determine checkpoint intervals, convert from durations to steps.
@@ -412,7 +430,7 @@ class ModelLadder(Config):
                 )
 
         return TrainerConfig(
-            save_folder=str(save_folder),
+            save_folder=save_folder,
             work_dir=str(self.work_dir),
             metrics_collect_interval=10,
             cancel_check_interval=10,
