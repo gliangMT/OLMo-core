@@ -231,12 +231,7 @@ class ModelLadder(Config):
         set_composable_seed(self.seed)
 
         # Configure model.
-        model_config = self.model_configurator.configure_model(
-            size_spec=size_spec,
-            sequence_length=self.sequence_length,
-            tokenizer=self.tokenizer,
-            device_type=self.device_type,
-        )
+        model_config = self.get_model_config(size_spec)
         num_params = model_config.num_non_embedding_params
 
         # Configure global batch size, make sure request number of devices matches the number
@@ -314,15 +309,17 @@ class ModelLadder(Config):
     def run_benchmark(self, size_spec: str):
         self.run(size_spec, for_benchmarking=True)
 
-    def get_num_params(self, size_spec: str):
-        """Get the actual number of non-embedding parameters for a model of the given size spec."""
-        model_config = self.model_configurator.configure_model(
+    def get_model_config(self, size_spec: str) -> ModelConfig:
+        return self.model_configurator.configure_model(
             size_spec=size_spec,
             sequence_length=self.sequence_length,
             tokenizer=self.tokenizer,
             device_type=self.device_type,
         )
-        return model_config.num_non_embedding_params
+
+    def get_num_params(self, size_spec: str):
+        """Get the actual number of non-embedding parameters for a model of the given size spec."""
+        return self.get_model_config(size_spec).num_non_embedding_params
 
     def get_num_devices_for_run(self, size_spec: str) -> int:
         """Get the number of devices that would be used for a run of the given size spec."""

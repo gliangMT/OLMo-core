@@ -118,6 +118,12 @@ def parse_args() -> argparse.Namespace:
         help="""Allow launching with uncommitted changes.""",
         default=False,
     )
+    parser.add_argument(
+        "--show-model",
+        action="store_true",
+        help="Show the model config.",
+        default=False,
+    )
 
     # Make sure the command is in the right position, otherwise the way we build the launch
     # config would fail.
@@ -142,7 +148,7 @@ def configure_ladder(args: argparse.Namespace) -> ModelLadder:
             sequence_length=args.sequence_length,
         ),
     ]
-    return ModelLadder(
+    ladder = ModelLadder(
         name=args.name,
         dir=str(io.join_path(get_root_dir(args.cluster), "model_ladders", args.name)),
         sizes=list(TransformerSize),
@@ -157,6 +163,10 @@ def configure_ladder(args: argparse.Namespace) -> ModelLadder:
         instance_sources=instance_sources,
         data_loader=ComposableDataLoaderConfig(num_workers=8),
     )
+    if args.show_model:
+        log.info("Model config:")
+        log.info(ladder.get_model_config(args.size))
+    return ladder
 
 
 def configure_launcher(

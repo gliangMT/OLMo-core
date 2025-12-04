@@ -7,6 +7,7 @@ from olmo_core.config import DType, StrEnum
 from olmo_core.data import TokenizerConfig
 from olmo_core.distributed.parallel import DataParallelType
 from olmo_core.exceptions import OLMoConfigurationError
+from olmo_core.nn.attention import AttentionBackendName
 from olmo_core.nn.transformer import TransformerConfig
 from olmo_core.optim import OptimConfig, Scheduler
 from olmo_core.train.train_module import (
@@ -60,25 +61,26 @@ class TransformerModelConfigurator(ModelConfigurator[TransformerConfig]):
         assert "h100" in device_type or "b200" in device_type
         assert sequence_length in {2048, 4096, 8192}
         size_spec = TransformerSize(size_spec)
-
         vocab_size = tokenizer.padded_vocab_size()
+        kwargs = dict(attn_backend=AttentionBackendName.flash_3)
+
         model: TransformerConfig
         if size_spec == TransformerSize.size_190M:
-            model = TransformerConfig.olmo3_190M(vocab_size)
+            model = TransformerConfig.olmo3_190M(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_370M:
-            model = TransformerConfig.olmo3_370M(vocab_size)
+            model = TransformerConfig.olmo3_370M(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_600M:
-            model = TransformerConfig.olmo3_600M(vocab_size)
+            model = TransformerConfig.olmo3_600M(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_760M:
-            model = TransformerConfig.olmo3_760M(vocab_size)
+            model = TransformerConfig.olmo3_760M(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_1B:
-            model = TransformerConfig.olmo3_1B(vocab_size)
+            model = TransformerConfig.olmo3_1B(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_3B:
-            model = TransformerConfig.olmo3_3B(vocab_size)
+            model = TransformerConfig.olmo3_3B(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_7B:
-            model = TransformerConfig.olmo3_7B(vocab_size)
+            model = TransformerConfig.olmo3_7B(vocab_size, **kwargs)
         elif size_spec == TransformerSize.size_13B:
-            model = TransformerConfig.olmo3_13B(vocab_size)
+            model = TransformerConfig.olmo3_13B(vocab_size, **kwargs)
         else:
             raise OLMoConfigurationError(f"Unsupported model size '{size_spec}'")
 
