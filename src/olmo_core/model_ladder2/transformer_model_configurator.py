@@ -126,7 +126,7 @@ class TransformerModelConfigurator(ModelConfigurator[TransformerConfig]):
         elif num_params <= 7e9:
             mbz = 2 * 4096
         else:
-            mbz = 1 * 4096
+            mbz = 2 * 4096
 
         if "b200" in device_type:
             mbz = mbz * 2
