@@ -1,8 +1,12 @@
+import concurrent.futures
 import logging
 import typing
 from abc import ABCMeta, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Generic, NamedTuple, TypeVar
+
+import rich
 
 import olmo_core.distributed.utils as dist_utils
 import olmo_core.io as io
@@ -19,6 +23,7 @@ from olmo_core.exceptions import OLMoConfigurationError
 from olmo_core.nn.config import ModelConfig
 from olmo_core.optim import OptimConfig, Scheduler
 from olmo_core.train import (
+    Checkpointer,
     Duration,
     DurationUnit,
     TrainerConfig,
@@ -27,19 +32,44 @@ from olmo_core.train import (
 )
 from olmo_core.train.train_module import TrainModule
 
-from .utils import format_count
+from .utils import format_count, format_tokens
 
 log = logging.getLogger(__name__)
 
 
 class DeviceMeshSpec(NamedTuple):
+    """
+    Describes the relevant dimensions of a device mesh needed to train a model of a certain size.
+    """
+
     world_size: int
     """The mininum numbers of devices required."""
     dp_world_size: int | None
     """
     The mininum size of the data parallel group. This can be set to ``None`` if the data parallel
-    world size should equal the world size.
+    world size should equal the world size. This, along with the per-device micro-batch size, is
+    needed to determine the right global batch size.
     """
+
+
+@dataclass(frozen=True)
+class RunCheckpointInfo:
+    name: str
+    step: int
+    tokens: int
+    checkpoint_path: PathOrStr
+    metrics_path: PathOrStr | None
+    exists: bool
+
+    def display(self) -> str:
+        info = f"Step {self.step:,d} ({format_tokens(self.tokens)}) [b cyan]{self.name}[/]"
+        if self.exists:
+            out = f"[b green]✔[/] {info}\n  ↳ checkpoint: [u blue]{self.checkpoint_path}[/]"
+            if self.metrics_path is not None:
+                out += f"\n  ↳ metrics:    [u blue]{self.metrics_path}[/]"
+            return out
+        else:
+            return f"[b yellow]✘[/] {info}"
 
 
 M = TypeVar("M", bound=ModelConfig)
@@ -71,7 +101,7 @@ class ModelConfigurator(Config, Generic[M], metaclass=ABCMeta):
         sequence_length: int,
         device_type: str,
     ) -> int:
-        """Configure the training microbatch per-device size in tokens for the given size spec."""
+        """Configure the training per-device micro-batch size in tokens for a model of this size."""
         raise NotImplementedError
 
     @abstractmethod
@@ -82,7 +112,7 @@ class ModelConfigurator(Config, Generic[M], metaclass=ABCMeta):
         sequence_length: int,
         device_type: str,
     ) -> DeviceMeshSpec:
-        """Configure the minimal device mesh spec needed to execute a run for model of this size."""
+        """Configure the minimal device mesh spec needed to train a model of this size."""
         raise NotImplementedError
 
     @abstractmethod
@@ -200,6 +230,10 @@ class ModelLadder(Config):
         return "./cache" if io.is_url(self.dir) else str(io.join_path(self.dir, "cache"))
 
     def dry_run(self, size_spec: str):
+        """
+        Do a dry-run, which prints relevant hyperparameters, the required number of devices,
+        and a displays a plot of the learning rate schedule.
+        """
         if size_spec not in self.sizes:
             raise ValueError(f"Invalid size_spec '{size_spec}', must be one of {self.sizes}")
 
@@ -221,7 +255,7 @@ class ModelLadder(Config):
         assert global_batch_size % (device_microbatch_size * dp_world_size) == 0
         num_grad_accum_steps = global_batch_size // (device_microbatch_size * dp_world_size)
 
-        log.info(
+        rich.get_console().print(
             f"Dry run for model size {size_spec}:\n"
             f" ❯ Actual number of non-embedding params is {format_count(num_params)}\n"
             f" ❯ Target batch size is {target_global_batch_size:,d} tokens\n"
@@ -231,7 +265,8 @@ class ModelLadder(Config):
             f"{device_microbatch_size // self.sequence_length} instance(s)\n"
             f" ❯ So there will be {num_grad_accum_steps:,d} grad accumulation step(s) per batch\n"
             f" ❯ And the run requires {requested_devices} out of {self.max_devices} devices, "
-            f"with a data-parallel world size of {dp_world_size:,d}."
+            f"with a data-parallel world size of {dp_world_size:,d}.",
+            highlight=False,
         )
         log.info("Plotting LR schedule...")
         self.run_configurator.plot_lr_schedule(num_params, batch_size=global_batch_size)
@@ -268,9 +303,7 @@ class ModelLadder(Config):
         scheduler = self.run_configurator.configure_lr_scheduler(num_params)
 
         # Configure trainer.
-        trainer_config = self._configure_trainer(
-            size_spec, num_params, global_batch_size, for_benchmarking=for_benchmarking
-        )
+        trainer_config = self._configure_trainer(size_spec, for_benchmarking=for_benchmarking)
 
         # Build instance sources and data loader.
         instance_sources = [
@@ -322,9 +355,14 @@ class ModelLadder(Config):
         teardown_training_environment()
 
     def run_benchmark(self, size_spec: str):
+        """
+        Do a bench-marking run for a model of the given size spec. This is just like
+        :meth:`run`, but with benchmarking-specific settings (no checkpoints, no evals, hard stop).
+        """
         self.run(size_spec, for_benchmarking=True)
 
     def get_model_config(self, size_spec: str) -> ModelConfig:
+        """Get the model config for a model of the given size spec."""
         return self.model_configurator.configure_model(
             size_spec=size_spec,
             sequence_length=self.sequence_length,
@@ -344,7 +382,64 @@ class ModelLadder(Config):
         return num_devices
 
     def get_save_folder(self, size_spec: str) -> str:
+        """Get the training save folder for a run of the given size spec."""
         return str(io.join_path(self.dir, size_spec))
+
+    def get_checkpoints(self, size_spec: str) -> list[RunCheckpointInfo]:
+        """Get the list of checkpoints for a run of the given size spec."""
+
+        def _get_checkpoint_info(step: int, name: str) -> RunCheckpointInfo:
+            dirname = Checkpointer.checkpoint_dirname(step)
+            dir = io.join_path(save_folder, dirname)
+            exists = Checkpointer.dir_is_checkpoint(dir)
+            metrics_path = io.join_path(save_folder, f"metrics_step{step}.json")
+            return RunCheckpointInfo(
+                name=name,
+                step=step,
+                tokens=step * global_batch_size,
+                checkpoint_path=dir,
+                metrics_path=metrics_path if io.file_exists(metrics_path) else None,
+                exists=exists,
+            )
+
+        save_folder = self.get_save_folder(size_spec)
+        num_params = self.get_num_params(size_spec)
+        global_batch_size, *_ = self._configure_batch_size_and_num_devices(size_spec, num_params)
+
+        checkpoints_to_check: dict[int, str] = {0: "initialization"}
+        for step, (_, checkpoint_name) in zip(
+            self._get_checkpoint_intervals(
+                num_params=num_params, global_batch_size=global_batch_size
+            ),
+            self.run_configurator.configure_checkpoint_intervals(num_params),
+        ):
+            checkpoints_to_check[step] = checkpoint_name
+
+        step_to_checkpoint_info: dict[int, RunCheckpointInfo] = {}
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for step, name in checkpoints_to_check.items():
+                futures.append(executor.submit(_get_checkpoint_info, step, name))
+            for future in concurrent.futures.as_completed(futures):
+                info = future.result()
+                step_to_checkpoint_info[info.step] = info
+
+        return [step_to_checkpoint_info[step] for step in sorted(step_to_checkpoint_info.keys())]
+
+    def _get_checkpoint_intervals(self, *, num_params: int, global_batch_size: int) -> list[int]:
+        return [
+            self._duration_to_steps(d, global_batch_size)
+            for d, _ in self.run_configurator.configure_checkpoint_intervals(num_params)
+        ]
+
+    def _duration_to_steps(self, d: Duration, global_batch_size: int) -> int:
+        if d.unit == DurationUnit.steps:
+            return d.value
+        elif d.unit == DurationUnit.tokens:
+            steps = d.value // global_batch_size
+            return steps
+        else:
+            raise ValueError(f"Unsupported checkpoint interval duration unit: {d.unit}.")
 
     def _configure_batch_size_and_num_devices(
         self, size_spec: str, num_params: int
@@ -405,30 +500,16 @@ class ModelLadder(Config):
     def _configure_trainer(
         self,
         size_spec: str,
-        num_params: int,
-        global_batch_size: int,
         for_benchmarking: bool = False,
     ) -> TrainerConfig:
         run_name = f"{self.name}-{size_spec}"
         save_folder = self.get_save_folder(size_spec)
+        num_params = self.get_num_params(size_spec)
+        global_batch_size, *_ = self._configure_batch_size_and_num_devices(size_spec, num_params)
         duration = self.run_configurator.configure_duration(num_params)
-
-        # Determine checkpoint intervals, convert from durations to steps.
-        checkpoint_intervals = [
-            d for d, _ in self.run_configurator.configure_checkpoint_intervals(num_params)
-        ]
-        checkpoint_interval_steps: list[int] = []
-        for d in checkpoint_intervals:
-            if d.unit == DurationUnit.steps:
-                checkpoint_interval_steps.append(d.value)
-            elif d.unit == DurationUnit.tokens:
-                steps = d.value // global_batch_size
-                checkpoint_interval_steps.append(steps)
-            else:
-                raise OLMoConfigurationError(
-                    f"Unsupported checkpoint interval duration unit: {d.unit}."
-                )
-
+        checkpoint_interval_steps = self._get_checkpoint_intervals(
+            num_params=num_params, global_batch_size=global_batch_size
+        )
         return TrainerConfig(
             save_folder=save_folder,
             work_dir=str(self.work_dir),
@@ -454,7 +535,7 @@ class ModelLadder(Config):
                 "profiler": callbacks.ProfilerCallback(enabled=for_benchmarking),
                 "gap_monitor": callbacks.GAPMonitorCallback(enabled=False),
                 "slack_notifier": callbacks.SlackNotifierCallback(name=run_name, enabled=False),
-                "beaker": callbacks.BeakerCallback(enabled=False),
+                "beaker": callbacks.BeakerCallback(),
                 "wandb": callbacks.WandBCallback(
                     name=run_name,
                     group=run_name,

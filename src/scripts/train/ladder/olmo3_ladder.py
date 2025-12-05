@@ -3,6 +3,8 @@ import logging
 import sys
 import textwrap
 
+import rich
+
 import olmo_core.io as io
 from olmo_core.data import DataMix, TokenizerConfig
 from olmo_core.data.composable import *
@@ -19,7 +21,9 @@ log = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    commands = ["dry_run", "benchmark", "launch_benchmark", "run", "launch_run"]
+    commands = ["dry_run", "benchmark", "launch_benchmark", "run", "launch_run", "status"]
+    command = sys.argv[1] if len(sys.argv) >= 2 else "help"
+
     parser = argparse.ArgumentParser(
         sys.argv[0],
         usage=f"python {sys.argv[0]} [CMD] [OPTIONS...]",
@@ -50,7 +54,10 @@ def parse_args() -> argparse.Namespace:
         help="The command to execute.",
     )
     parser.add_argument(
-        "--size", choices=list(TransformerSize), required=True, help="The model size."
+        "--size",
+        choices=list(TransformerSize),
+        required=command in {"dry_run", "benchmark", "launch_benchmark", "run", "launch_run"},
+        help="The model size.",
     )
     parser.add_argument(
         "--name",
@@ -127,7 +134,7 @@ def parse_args() -> argparse.Namespace:
 
     # Make sure the command is in the right position, otherwise the way we build the launch
     # config would fail.
-    if sys.argv[1] not in commands:
+    if command not in commands:
         parser.print_help()
         sys.exit(1)
 
@@ -206,6 +213,8 @@ def main():
         run(args)
     elif args.cmd == "launch_run":
         launch_run(args)
+    elif args.cmd == "status":
+        status(args)
     else:
         raise NotImplementedError(f"Command '{args.cmd}' is not implemented.")
 
@@ -240,6 +249,40 @@ def launch_run(args: argparse.Namespace):
     log.info(f"Launching ladder run for size {args.size}...")
     log.info(f"Results will be saved to {ladder.get_save_folder(args.size)}")
     launcher.launch(follow=True, slack_notifications=False)
+
+
+def status(args: argparse.Namespace):
+    prepare_cli_environment()
+    ladder = configure_ladder(args)
+    io.init_client(ladder.dir)
+    sizes = [args.size] if args.size else ladder.sizes
+    for size in sizes:
+        print()
+        checkpoints = ladder.get_checkpoints(size)
+        if not checkpoints:
+            rich.get_console().print(
+                f"[b yellow]Run for size {size} has no configured checkpoint intervals.[/]",
+                highlight=False,
+            )
+            continue
+
+        max_step_completed = 0
+        max_step = -1
+        checkpoint_displays = []
+        for ckpt in checkpoints:
+            max_step = max(max_step, ckpt.step)
+            if ckpt.exists:
+                max_step_completed = max(max_step_completed, ckpt.step)
+            checkpoint_displays.append(ckpt.display())
+
+        assert max_step > 0
+        pct_complete = round((max_step_completed / max_step) * 100.0)
+        color = "green" if pct_complete == 100 else "yellow"
+        completion_display = f"[b {color}]Run for size {size}, {pct_complete}% complete:[/]"
+        rich.get_console().print(
+            f"{completion_display}\n" + "\n".join(checkpoint_displays),
+            highlight=False,
+        )
 
 
 if __name__ == "__main__":
