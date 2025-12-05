@@ -254,7 +254,6 @@ def launch_run(args: argparse.Namespace):
 def status(args: argparse.Namespace):
     prepare_cli_environment()
     ladder = configure_ladder(args)
-    io.init_client(ladder.dir)
     sizes = [args.size] if args.size else ladder.sizes
     for size in sizes:
         print()

@@ -1,4 +1,10 @@
-from .base import ModelConfigurator, ModelLadder, RunConfigurator
+from .base import (
+    DeviceMeshSpec,
+    ModelConfigurator,
+    ModelLadder,
+    RunCheckpointInfo,
+    RunConfigurator,
+)
 from .transformer_model_configurator import (
     TransformerModelConfigurator,
     TransformerSize,
@@ -10,6 +16,8 @@ __all__ = [
     "ModelLadder",
     "ModelConfigurator",
     "RunConfigurator",
+    "RunCheckpointInfo",
+    "DeviceMeshSpec",
     # Concrete implementations.
     "WSDSChinchillaRunConfigurator",
     "TransformerModelConfigurator",
