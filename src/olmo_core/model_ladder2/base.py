@@ -588,7 +588,7 @@ class ModelLadder(Config):
                     name=run_name,
                     group=run_name,
                     project=self.name,
-                    cancel_check_interval=10,
+                    cancel_check_interval=50,
                     enabled=not for_benchmarking,
                 ),
                 "downstream_evaluator": callbacks.DownstreamEvaluatorCallbackConfig(
