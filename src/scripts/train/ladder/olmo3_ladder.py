@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import textwrap
+from pathlib import Path
 
 import rich
 
@@ -21,7 +22,15 @@ log = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    commands = ["dry_run", "benchmark", "launch_benchmark", "run", "launch_run", "status"]
+    commands = [
+        "dry_run",
+        "benchmark",
+        "launch_benchmark",
+        "run",
+        "launch_run",
+        "status",
+        "metrics",
+    ]
     command = sys.argv[1] if len(sys.argv) >= 2 else "help"
 
     parser = argparse.ArgumentParser(
@@ -56,7 +65,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--size",
         choices=list(TransformerSize),
-        required=command in {"dry_run", "benchmark", "launch_benchmark", "run", "launch_run"},
+        required=command
+        in {"dry_run", "benchmark", "launch_benchmark", "run", "launch_run", "metrics"},
         help="The model size.",
     )
     parser.add_argument(
@@ -130,6 +140,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Show the model config.",
         default=False,
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("~/Downloads").expanduser(),
+        help="""A local directory to store artifacts in like metrics.""",
     )
 
     # Make sure the command is in the right position, otherwise the way we build the launch
@@ -215,6 +231,8 @@ def main():
         launch_run(args)
     elif args.cmd == "status":
         status(args)
+    elif args.cmd == "metrics":
+        metrics(args)
     else:
         raise NotImplementedError(f"Command '{args.cmd}' is not implemented.")
 
@@ -282,6 +300,20 @@ def status(args: argparse.Namespace):
             f"{completion_display}\n" + "\n".join(checkpoint_displays),
             highlight=False,
         )
+
+
+def metrics(args: argparse.Namespace):
+    prepare_cli_environment()
+    ladder = configure_ladder(args)
+    df = ladder.get_metrics(args.size)
+    path = io.join_path(args.output_dir, f"metrics_{args.size}.pkl")
+    df.to_pickle(path)
+    log.info(
+        f"Metrics for size {args.size} saved to '{path}'.\n"
+        f"Use pandas to load and analyze the metrics, e.g.:\n\n"
+        f"    import pandas as pd\n"
+        f"    df = pd.read_pickle('{path}')\n"
+    )
 
 
 if __name__ == "__main__":

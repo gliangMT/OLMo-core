@@ -1,12 +1,14 @@
 import concurrent.futures
+import json
 import logging
 import typing
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar
 
 import rich
+from cached_path import cached_path
 
 import olmo_core.distributed.utils as dist_utils
 import olmo_core.io as io
@@ -33,6 +35,9 @@ from olmo_core.train import (
 from olmo_core.train.train_module import TrainModule
 
 from .utils import format_count, format_tokens
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 log = logging.getLogger(__name__)
 
@@ -347,12 +352,12 @@ class ModelLadder(Config):
         # Record all configs.
         config_dict = {
             "seed": self.seed,
-            "size": size_spec,
-            "model": model_config,
-            "optim": optim_config,
-            "scheduler": scheduler,
-            "data_loader": self.data_loader,
-            "instance_sources": self.instance_sources,
+            "size": str(size_spec),
+            "model": model_config.as_config_dict(),
+            "optim": optim_config.as_config_dict(),
+            "scheduler": scheduler.as_config_dict(),
+            "data_loader": self.data_loader.as_config_dict(),
+            "instance_sources": [s.as_config_dict() for s in self.instance_sources],
         }
         typing.cast(
             callbacks.ConfigSaverCallback, trainer.callbacks["config_saver"]
@@ -394,20 +399,29 @@ class ModelLadder(Config):
         """Get the training save folder for a run of the given size spec."""
         return str(io.join_path(self.dir, size_spec))
 
-    def get_checkpoints(self, size_spec: str) -> list[RunCheckpointInfo]:
-        """Get the list of checkpoints for a run of the given size spec."""
+    def get_checkpoints(
+        self, size_spec: str, download_metrics: bool = False
+    ) -> list[RunCheckpointInfo]:
+        """
+        Get the list of checkpoints from the run of the given size spec, at the intervals
+        defined by :meth:`RunConfigurator.configure_checkpoint_intervals()`.
+        """
 
         def _get_checkpoint_info(step: int, name: str) -> RunCheckpointInfo:
             dirname = Checkpointer.checkpoint_dirname(step)
             dir = io.join_path(save_folder, dirname)
             exists = Checkpointer.dir_is_checkpoint(dir)
-            metrics_path = io.join_path(save_folder, f"metrics_step{step}.json")
+            metrics_path: PathOrStr | None = io.join_path(save_folder, f"metrics_step{step}.json")
+            if not io.file_exists(metrics_path):
+                metrics_path = None
+            elif download_metrics:
+                metrics_path = cached_path(metrics_path, quiet=True)
             return RunCheckpointInfo(
                 name=name,
                 step=step,
                 tokens=step * global_batch_size,
                 checkpoint_path=dir,
-                metrics_path=metrics_path if io.file_exists(metrics_path) else None,
+                metrics_path=metrics_path,
                 exists=exists,
             )
 
@@ -436,6 +450,29 @@ class ModelLadder(Config):
                 step_to_checkpoint_info[info.step] = info
 
         return [step_to_checkpoint_info[step] for step in sorted(step_to_checkpoint_info.keys())]
+
+    def get_metrics(self, size_spec: str, prefix: str = "eval/") -> "DataFrame":
+        """
+        Get the metrics from the run of the given size spec, at the intervals
+        defined by :meth:`RunConfigurator.configure_checkpoint_intervals()`.
+        """
+        import pandas as pd
+
+        checkpoints = self.get_checkpoints(size_spec, download_metrics=True)
+        num_params = self.get_num_params(size_spec)
+        all_metrics = []
+        for checkpoint in checkpoints:
+            if checkpoint.metrics_path is not None:
+                with open(checkpoint.metrics_path, "r") as f:
+                    metrics = {k: v for k, v in json.load(f).items() if k.startswith(prefix)}
+                    metrics["name"] = checkpoint.name
+                    metrics["step"] = checkpoint.step
+                    metrics["tokens"] = checkpoint.tokens
+                    metrics["size"] = size_spec
+                    metrics["num_params"] = num_params
+                    all_metrics.append(metrics)
+        df = pd.DataFrame(all_metrics)
+        return df
 
     def _get_checkpoint_intervals(self, *, num_params: int, global_batch_size: int) -> list[int]:
         return [
@@ -562,7 +599,6 @@ class ModelLadder(Config):
                     enabled=not for_benchmarking,
                 ),
                 "metric_saver": callbacks.MetricSaverCallback(
-                    metrics_to_capture=["train/*", "optim/*", "eval/*"],
                     fixed_steps=checkpoint_interval_steps,
                     enabled=not for_benchmarking,
                 ),

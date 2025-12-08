@@ -22,7 +22,8 @@ dependencies = [
     "omegaconf",
     "safetensors",
     "importlib_resources",
-    "bettermap"
+    "bettermap",
+    "pandas",
 ]
 
 [project.urls]
@@ -41,7 +42,6 @@ dev = [
     "matplotlib",
     "mypy>=1.0,<1.4",
     "myst-parser>=1.0,<3.0",
-    "pandas",
     "pytest",
     "pytest-memray",
     "pytest-sphinx",
