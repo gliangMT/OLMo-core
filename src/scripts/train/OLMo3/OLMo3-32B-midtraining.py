@@ -46,7 +46,7 @@ def build_experiment_config(cli_context: CliContext) -> ExperimentConfig:
         root_dir=root_dir,
         workspace="ai2/OLMo_3",
         num_nodes=64,
-        nccl_debug=False,
+        mccl_debug=False,
         beaker_image=OLMoCoreBeakerImage.tch270_cu128,
         # override priority from the CLI eg `--launch.priority=high`
     )

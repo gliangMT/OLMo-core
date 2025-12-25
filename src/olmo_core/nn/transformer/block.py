@@ -759,11 +759,11 @@ class MoEHybridTransformerBlockBase(MoETransformerBlock):
             # NOTE: alternatively could do something like this, but even with an extra stream it's
             # not as fast as the hand-crafted 'combined_forward()'.
             # stream = get_or_init_stream()
-            # stream.wait_stream(torch.cuda.default_stream())
+            # stream.wait_stream(torch.musa.default_stream())
             # h_sparse = self._fwd_sparse(x)
-            # with torch.cuda.stream(stream):
+            # with torch.musa.stream(stream):
             #     h_dense = self._fwd_dense(x, **kwargs)
-            # torch.cuda.default_stream().wait_stream(stream)
+            # torch.musa.default_stream().wait_stream(stream)
             # return h_sparse + h_dense
             return self.combined_forward(x, loss_div_factor=loss_div_factor, **kwargs)
 

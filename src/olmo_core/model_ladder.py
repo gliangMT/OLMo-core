@@ -270,7 +270,7 @@ class ModelLadder(Config, metaclass=ABCMeta):
         model size.
 
         :param size: The target model size.
-        :param gpu_type: The type of GPU as given by ``torch.cuda.get_device_name()``.
+        :param gpu_type: The type of GPU as given by ``torch.musa.get_device_name()``.
         """
         raise NotImplementedError
 
@@ -305,7 +305,7 @@ class ModelLadder(Config, metaclass=ABCMeta):
         Build the train module config.
 
         :param size: The target model size.
-        :param gpu_type: The type of GPU as given by ``torch.cuda.get_device_name()``.
+        :param gpu_type: The type of GPU as given by ``torch.musa.get_device_name()``.
         :param dp_world_size: The data parallel world size.
         """
         if dp_world_size > self.max_dp_world_size:
@@ -375,7 +375,7 @@ class ModelLadder(Config, metaclass=ABCMeta):
         Build the trainer config.
 
         :param size: The target model size.
-        :param gpu_type: The type of GPU as given by ``torch.cuda.get_device_name()``.
+        :param gpu_type: The type of GPU as given by ``torch.musa.get_device_name()``.
         :param dp_world_size: The data parallel world size.
         """
         del dp_world_size

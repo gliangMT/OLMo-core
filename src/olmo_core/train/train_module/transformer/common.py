@@ -106,12 +106,12 @@ def parallelize_model(
 
     # Maybe compile.
     if compile_model:
-        if torch.cuda.is_available():
+        if torch.musa.is_available():
             for m in model_parts:
                 m.apply_compile()
             log.info("Applied torch.compile() to the model")
         else:
-            log.warning("Skipping model compilation since CUDA is not available")
+            log.warning("Skipping model compilation since MUSA is not available")
 
     # Maybe shard/replicate according to data parallel config.
     if dp_config is not None:

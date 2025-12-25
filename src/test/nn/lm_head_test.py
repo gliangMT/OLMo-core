@@ -37,12 +37,12 @@ def test_lm_head_fused_linear_loss(
     loss_reduction: str = "sum",
 ):
     seed_all(42)
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     config1 = LMHeadConfig(loss_implementation=LMLossImplementation.default, bias=False)
-    lm_head1 = config1.build(d_model=d_model, vocab_size=vocab_size, init_device="cuda")
+    lm_head1 = config1.build(d_model=d_model, vocab_size=vocab_size, init_device="musa")
     config2 = LMHeadConfig(loss_implementation=LMLossImplementation.fused_linear, bias=False)
-    lm_head2 = config2.build(d_model=d_model, vocab_size=vocab_size, init_device="cuda")
+    lm_head2 = config2.build(d_model=d_model, vocab_size=vocab_size, init_device="musa")
 
     lm_head2.load_state_dict(lm_head1.state_dict())
 
@@ -158,14 +158,14 @@ def test_lm_head_tp(
     z_loss_multiplier: float = 1e-2,
 ):
     seed_all(42)
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     checkpoint_dir = tmp_path / "checkpoint"
 
     config = LMHeadConfig(
         name=head_type, loss_implementation=loss_implementation, bias=False, layer_norm=layer_norm
     )
-    lm_head = config.build(d_model=d_model, vocab_size=vocab_size, init_device="cuda")
+    lm_head = config.build(d_model=d_model, vocab_size=vocab_size, init_device="musa")
     save_model_and_optim_state(checkpoint_dir, lm_head)
 
     B, S = 2, 32
@@ -186,7 +186,7 @@ def test_lm_head_tp(
 
     run_distributed_test(
         run_lm_head_tp,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_kwargs=dict(
             checkpoint_dir=checkpoint_dir,
@@ -210,12 +210,12 @@ def test_lm_head_tp(
 @pytest.mark.parametrize("head_type", [LMHeadType.default, LMHeadType.normalized])
 def test_lm_head_logits_to_keep(head_type):
     seed_all(42)
-    device = torch.device("cuda")
+    device = torch.device("musa")
     d_model, vocab_size = 256, 1024
     B, S = 2, 32
 
     config = LMHeadConfig(name=head_type, loss_implementation=LMLossImplementation.default)
-    lm_head = config.build(d_model=d_model, vocab_size=vocab_size, init_device="cuda")
+    lm_head = config.build(d_model=d_model, vocab_size=vocab_size, init_device="musa")
 
     inputs = torch.randn(B, S, d_model, device=device)
     labels = torch.randint(0, vocab_size, (B, S), device=device)

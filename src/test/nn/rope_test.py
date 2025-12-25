@@ -77,9 +77,9 @@ def test_fused_rope(dtype):
 
     with (
         torch.no_grad(),
-        torch.autocast("cuda", dtype=dtype, enabled=dtype != torch.float32),
+        torch.autocast("musa", dtype=dtype, enabled=dtype != torch.float32),
     ):
-        qkv = torch.rand(B, T, 3, n_heads, d_model // n_heads, device="cuda", dtype=dtype)
+        qkv = torch.rand(B, T, 3, n_heads, d_model // n_heads, device="musa", dtype=dtype)
         q, k, _ = qkv.split(1, dim=2)
         q, k = q.squeeze(2), k.squeeze(2)
         qkv = fused_rope(qkv.clone())
@@ -397,12 +397,12 @@ def test_fused_rope_start_pos_zero_matches_default():
     rope = FusedRotaryEmbedding(head_size=head_size)
 
     with torch.no_grad():
-        qkv = torch.rand(B, T, 3, n_heads, head_size, device="cuda")
+        qkv = torch.rand(B, T, 3, n_heads, head_size, device="musa")
         qkv_default = rope(qkv.clone())
         qkv_zero = rope(qkv.clone(), start_pos=0)
         torch.testing.assert_close(qkv_default, qkv_zero)
 
-        qkv = torch.rand(B, T, 3, n_heads, head_size, device="cuda")
+        qkv = torch.rand(B, T, 3, n_heads, head_size, device="musa")
         _ = rope(qkv.clone(), start_pos=2)  # just check it doesnt break
 
 

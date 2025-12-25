@@ -81,9 +81,9 @@ def test_attention_backend(
     seed_all(0)
     B, T = 2, 16
 
-    q = torch.randn(B, T, n_heads, head_dim, device="cuda", dtype=dtype)
-    k = torch.randn(B, T, n_kv_heads or n_heads, head_dim, device="cuda", dtype=dtype)
-    v = torch.randn(B, T, n_kv_heads or n_heads, head_dim, device="cuda", dtype=dtype)
+    q = torch.randn(B, T, n_heads, head_dim, device="musa", dtype=dtype)
+    k = torch.randn(B, T, n_kv_heads or n_heads, head_dim, device="musa", dtype=dtype)
+    v = torch.randn(B, T, n_kv_heads or n_heads, head_dim, device="musa", dtype=dtype)
 
     att = backend((q, k, v)).view(B, T, -1)
     att_reference = default((q, k, v)).view(B, T, -1)
@@ -318,7 +318,7 @@ def test_fused_attention_against_non_fused(dtype: torch.dtype, use_flash: bool):
     kwargs: Dict[str, Any] = dict(
         d_model=d_model,
         n_heads=8,
-        init_device="cuda",
+        init_device="musa",
     )
 
     attention = Attention(use_flash=use_flash, **kwargs)
@@ -334,10 +334,10 @@ def test_fused_attention_against_non_fused(dtype: torch.dtype, use_flash: bool):
             torch.cat([attention.w_q.bias, attention.w_k.bias, attention.w_v.bias])
         )
 
-    x1 = torch.randn(batch_size, seq_len, d_model, dtype=dtype, device="cuda")
+    x1 = torch.randn(batch_size, seq_len, d_model, dtype=dtype, device="musa")
     x2 = x1.clone()
 
-    with torch.autocast("cuda", dtype=dtype, enabled=True):
+    with torch.autocast("musa", dtype=dtype, enabled=True):
         y1 = attention(x1)
         y2 = fused_att(x2)
 
@@ -353,15 +353,15 @@ def test_fused_attention_with_rope():
     seq_len = 32
 
     fused_att = FusedAttention(
-        d_model=d_model, n_heads=8, rope=RoPEConfig(name=RoPEType.fused), init_device="cuda"
+        d_model=d_model, n_heads=8, rope=RoPEConfig(name=RoPEType.fused), init_device="musa"
     )
 
-    x1 = torch.randn(1, seq_len, d_model, dtype=torch.bfloat16, device="cuda")
-    x2 = torch.randn(1, seq_len, d_model, dtype=torch.bfloat16, device="cuda")
+    x1 = torch.randn(1, seq_len, d_model, dtype=torch.bfloat16, device="musa")
+    x2 = torch.randn(1, seq_len, d_model, dtype=torch.bfloat16, device="musa")
     x = torch.cat([x1, x2])
 
     # Make sure batch outputs match individual outputs.
-    with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+    with torch.no_grad(), torch.autocast("musa", dtype=torch.bfloat16):
         y1 = fused_att(x1)
         y2 = fused_att(x2)
         y = fused_att(x)
@@ -378,8 +378,8 @@ def test_attention_with_intra_document_masking():
     d_model = 128
     seq_len = 32
 
-    attention = Attention(d_model=d_model, n_heads=8, init_device="cuda", use_flash=True)
-    fused_att = FusedAttention(d_model=d_model, n_heads=8, init_device="cuda")
+    attention = Attention(d_model=d_model, n_heads=8, init_device="musa", use_flash=True)
+    fused_att = FusedAttention(d_model=d_model, n_heads=8, init_device="musa")
 
     # Make sure weights match.
     with torch.no_grad():
@@ -391,21 +391,21 @@ def test_attention_with_intra_document_masking():
             torch.cat([attention.w_q.bias, attention.w_k.bias, attention.w_v.bias])
         )
 
-    x = torch.randn(2, seq_len, d_model, dtype=torch.bfloat16, device="cuda")
+    x = torch.randn(2, seq_len, d_model, dtype=torch.bfloat16, device="musa")
 
-    with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+    with torch.no_grad(), torch.autocast("musa", dtype=torch.bfloat16):
         y1 = attention(x.clone())
         y2 = attention(
             x.clone(),
             max_doc_len=seq_len,
-            cu_doc_lens=torch.tensor([0, seq_len, 2 * seq_len], dtype=torch.int32, device="cuda"),
+            cu_doc_lens=torch.tensor([0, seq_len, 2 * seq_len], dtype=torch.int32, device="musa"),
         )
 
         y1_fused = fused_att(x.clone())
         y2_fused = fused_att(
             x.clone(),
             max_doc_len=seq_len,
-            cu_doc_lens=torch.tensor([0, seq_len, 2 * seq_len], dtype=torch.int32, device="cuda"),
+            cu_doc_lens=torch.tensor([0, seq_len, 2 * seq_len], dtype=torch.int32, device="musa"),
         )
 
     torch.testing.assert_close(y1, y2)
@@ -444,32 +444,32 @@ def test_attention_kv_caching(batch_size: int, n_kv_heads: Optional[int], use_ro
         n_kv_heads=n_kv_heads,
         rope=RoPEConfig() if use_rope else None,
         use_flash=True,
-        init_device="cuda",
+        init_device="musa",
         dtype=torch.float32,
     )
 
     # Input tensor
-    x = torch.randn(batch_size, total_len, d_model, dtype=torch.bfloat16, device="cuda")
+    x = torch.randn(batch_size, total_len, d_model, dtype=torch.bfloat16, device="musa")
 
     # 1. Combined forward pass (for comparison)
-    with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+    with torch.no_grad(), torch.autocast("musa", dtype=torch.bfloat16):
         y_combined = attention(x)
 
     # 2. Prefill + multiple decode steps with KV cache
     attention.init_kv_cache_manager(batch_size, max_seq_len)
     x_prefill = x[:, :prefill_len, :]
-    attention_mask = torch.ones(batch_size, prefill_len, dtype=torch.bool, device="cuda")
+    attention_mask = torch.ones(batch_size, prefill_len, dtype=torch.bool, device="musa")
     cache_leftpad = attention_mask_to_cache_leftpad(attention_mask)
 
     # First pass with allocated KV cache - this will populate the cache
-    with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+    with torch.no_grad(), torch.autocast("musa", dtype=torch.bfloat16):
         y_prefill = attention(x_prefill, cache_leftpad=cache_leftpad)
 
     # Multiple decode steps
     y_decode_steps = []
     for step in range(decode_steps):
         x_decode = x[:, prefill_len + step : prefill_len + step + 1, :]
-        with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+        with torch.no_grad(), torch.autocast("musa", dtype=torch.bfloat16):
             y_decode = attention(x_decode, cache_leftpad=None)
         y_decode_steps.append(y_decode)
     y_decode_combined = torch.cat(y_decode_steps, dim=1)
@@ -514,7 +514,7 @@ def test_attention_kv_cache_update():
         n_heads=n_heads,
         n_kv_heads=n_kv_heads,
         use_flash=True,
-        init_device="cuda",
+        init_device="musa",
         dtype=torch.float32,
     )
 
@@ -523,11 +523,11 @@ def test_attention_kv_cache_update():
     assert attention.kv_cache_manager is not None
 
     # Manually set cache contents as if we just did a prefill.
-    prefill_input = torch.randn(batch_size, prefill_len, d_model, dtype=dtype, device="cuda")
-    attention_mask = torch.ones(batch_size, prefill_len, dtype=torch.bool, device="cuda")
+    prefill_input = torch.randn(batch_size, prefill_len, d_model, dtype=dtype, device="musa")
+    attention_mask = torch.ones(batch_size, prefill_len, dtype=torch.bool, device="musa")
     cache_leftpad = attention_mask_to_cache_leftpad(attention_mask)
 
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         attention(prefill_input, cache_leftpad=cache_leftpad)
 
     k_at_prev_write_pos: Optional[torch.Tensor] = None
@@ -539,8 +539,8 @@ def test_attention_kv_cache_update():
         v_cache_before = attention.kv_cache_manager.v_cache.clone()
         cache_seqlens_before = attention.kv_cache_manager.cache_seqlens.clone()
 
-        decode_input = torch.randn(batch_size, 1, d_model, dtype=dtype, device="cuda")
-        with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+        decode_input = torch.randn(batch_size, 1, d_model, dtype=dtype, device="musa")
+        with torch.no_grad(), torch.autocast("musa", dtype=dtype):
             attention(decode_input, cache_leftpad=None)
 
         # Check that cache has been updated.
@@ -608,19 +608,19 @@ def test_attention_prefill_forward_pass(batch_size: int):
     max_seq_len = 128
     seq_len = 124
     dtype = torch.bfloat16
-    attention = Attention(d_model=d_model, n_heads=n_heads, use_flash=True, init_device="cuda")
+    attention = Attention(d_model=d_model, n_heads=n_heads, use_flash=True, init_device="musa")
 
-    x = torch.randn(batch_size, seq_len, d_model, dtype=dtype, device="cuda")
+    x = torch.randn(batch_size, seq_len, d_model, dtype=dtype, device="musa")
 
     # Standard forward pass without KV cache
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         y_standard = attention(x)
 
     # Forward pass with KV cache allocated
     attention.init_kv_cache_manager(batch_size, max_seq_len)
-    attention_mask = torch.ones(batch_size, seq_len, dtype=torch.bool, device="cuda")
+    attention_mask = torch.ones(batch_size, seq_len, dtype=torch.bool, device="musa")
     cache_leftpad = attention_mask_to_cache_leftpad(attention_mask)
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         y_with_cache = attention(x, cache_leftpad=cache_leftpad)
 
     torch.testing.assert_close(y_standard, y_with_cache)
@@ -639,14 +639,14 @@ def test_attention_kv_cache_write_position():
     dtype = torch.bfloat16
 
     attention = Attention(
-        d_model=d_model, n_heads=n_heads, use_flash=True, init_device="cuda", dtype=torch.float32
+        d_model=d_model, n_heads=n_heads, use_flash=True, init_device="musa", dtype=torch.float32
     )
 
     # Create inputs with different sequence lengths (simulated with left padding)
     # Sequence 1: 3 padding tokens + 7 real tokens
     # Sequence 2: 5 padding tokens + 5 real tokens
     seq_len = 10
-    x = torch.randn(batch_size, seq_len, d_model, dtype=dtype, device="cuda")
+    x = torch.randn(batch_size, seq_len, d_model, dtype=dtype, device="musa")
 
     # Create attention mask with left padding
     attention_mask = torch.tensor(
@@ -655,7 +655,7 @@ def test_attention_kv_cache_write_position():
             [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],  # 5 padding tokens
         ],
         dtype=torch.bool,
-        device="cuda",
+        device="musa",
     )
 
     # Convert to cache_leftpad
@@ -666,7 +666,7 @@ def test_attention_kv_cache_write_position():
     attention.init_kv_cache_manager(batch_size, max_seq_len)
     assert attention.kv_cache_manager is not None
 
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         y_prefill = attention(x, cache_leftpad=cache_leftpad)
 
     assert y_prefill.shape == (batch_size, seq_len, d_model)
@@ -690,12 +690,12 @@ def test_attention_kv_cache_write_position():
         assert torch.all(v_cache[i, lp + content_len :] == 0)
 
     # 2. Test incremental decoding
-    new_token = torch.randn(batch_size, 1, d_model, dtype=dtype, device="cuda")
+    new_token = torch.randn(batch_size, 1, d_model, dtype=dtype, device="musa")
     k_cache_before = k_cache.clone()
     v_cache_before = v_cache.clone()
     seqlens_before = attention.kv_cache_manager.cache_seqlens.clone()
 
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         y_decode = attention(new_token, cache_leftpad=None)
 
     assert y_decode.shape == (batch_size, 1, d_model)
@@ -735,8 +735,8 @@ def test_attention_leftpad_shift_equivalence(use_rope):
 
     # Shared content of length L
     len_content = 7
-    x_shared = torch.randn(1, len_content, d_model, dtype=dtype, device="cuda")
-    x_next_shared = torch.randn(1, 1, d_model, dtype=dtype, device="cuda")
+    x_shared = torch.randn(1, len_content, d_model, dtype=dtype, device="musa")
+    x_next_shared = torch.randn(1, 1, d_model, dtype=dtype, device="musa")
 
     # Two different left-padding amounts for the same content
     pad_a = 3
@@ -744,16 +744,16 @@ def test_attention_leftpad_shift_equivalence(use_rope):
 
     # Build masks to derive correct cache_leftpad and seq_lens
     max_len_a = pad_a + len_content
-    mask_a = torch.tensor([[0] * pad_a + [1] * len_content], dtype=torch.bool, device="cuda")
+    mask_a = torch.tensor([[0] * pad_a + [1] * len_content], dtype=torch.bool, device="musa")
     cache_leftpad_a = attention_mask_to_cache_leftpad(mask_a)
 
     max_len_b = pad_b + len_content
-    mask_b = torch.tensor([[0] * pad_b + [1] * len_content], dtype=torch.bool, device="cuda")
+    mask_b = torch.tensor([[0] * pad_b + [1] * len_content], dtype=torch.bool, device="musa")
     cache_leftpad_b = attention_mask_to_cache_leftpad(mask_b)
 
     # Build left-padded inputs so padding tokens are present and must be ignored by the kernel
-    x_a = torch.zeros(1, max_len_a, d_model, dtype=dtype, device="cuda")
-    x_b = torch.zeros(1, max_len_b, d_model, dtype=dtype, device="cuda")
+    x_a = torch.zeros(1, max_len_a, d_model, dtype=dtype, device="musa")
+    x_b = torch.zeros(1, max_len_b, d_model, dtype=dtype, device="musa")
     x_a[:, -len_content:, :] = x_shared
     x_b[:, -len_content:, :] = x_shared
 
@@ -762,13 +762,13 @@ def test_attention_leftpad_shift_equivalence(use_rope):
         n_heads=n_heads,
         rope=RoPEConfig() if use_rope else None,
         use_flash=True,
-        init_device="cuda",
+        init_device="musa",
         dtype=torch.float32,
     )
 
     # Run with leftpad A
     attention.init_kv_cache_manager(1, kv_cache_max_len)
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         # Prefill
         y_a = attention(x_a, cache_leftpad=cache_leftpad_a)
 
@@ -777,7 +777,7 @@ def test_attention_leftpad_shift_equivalence(use_rope):
 
     # Run with leftpad B
     attention.init_kv_cache_manager(1, kv_cache_max_len)
-    with torch.no_grad(), torch.autocast("cuda", dtype=dtype):
+    with torch.no_grad(), torch.autocast("musa", dtype=dtype):
         # Prefill
         y_b = attention(x_b, cache_leftpad=cache_leftpad_b)
 
@@ -1050,7 +1050,7 @@ def _run_tensor_parallel_attention(
     ],
 )
 def test_tensor_parallel_attention(backend: str, attn_kwargs: Dict[str, Any], tmp_path):
-    device = torch.device("cuda") if "nccl" in backend else torch.device("cpu")
+    device = torch.device("musa") if "mccl" in backend else torch.device("cpu")
 
     seed_all(0)
     attn_kwargs.update({"d_model": 128, "n_heads": 8, "use_flash": False})
@@ -1120,7 +1120,7 @@ def _run_context_parallel_attention(
 @pytest.mark.skip("known precision issues with ring-flash-attn")
 def test_context_parallel_attention(load_balancer_type, head_stride: int, tmp_path):
     seed_all(0)
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     # CP requires flash-attn and low precision dtypes.
     attn_kwargs: Dict[str, Any] = {"d_model": 128, "n_heads": 8, "use_flash": True}
@@ -1128,7 +1128,7 @@ def test_context_parallel_attention(load_balancer_type, head_stride: int, tmp_pa
 
     bs, seq_len = 2, 64
     x = torch.randn(bs, seq_len, attn_kwargs["d_model"], device=device, dtype=torch.bfloat16)
-    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+    with torch.autocast(device_type="musa", dtype=torch.bfloat16):
         y = attn(x)
 
     outputs_path = tmp_path / "attn_y.pt"
@@ -1140,7 +1140,7 @@ def test_context_parallel_attention(load_balancer_type, head_stride: int, tmp_pa
 
     run_distributed_test(
         _run_context_parallel_attention,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             checkpoint_dir,

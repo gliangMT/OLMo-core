@@ -38,7 +38,7 @@ from olmo_core.train.train_module.transformer.common import parallelize_model
 from olmo_core.train.train_module.transformer.config import (
     TransformerDataParallelConfig,
 )
-from olmo_core.utils import gc_cuda, get_default_device, log_or_print, move_to_device
+from olmo_core.utils import gc_musa, get_default_device, log_or_print, move_to_device
 
 log = logging.getLogger(__name__)
 
@@ -274,7 +274,7 @@ class TransformerGenerationModule(GenerationModule):
             generated = torch.cat([generated, next_tokens.unsqueeze(-1)], dim=1)
 
             if log_timing and tokens_generated == 0:
-                torch.cuda.synchronize()
+                torch.musa.synchronize()
                 decode_start_time = time.perf_counter()
                 time_to_first_token = decode_start_time - forward_start_time
                 setup_time = forward_start_time - start_time
@@ -289,7 +289,7 @@ class TransformerGenerationModule(GenerationModule):
             logprobs = torch.cat(all_logprobs, dim=1)
 
         if log_timing:
-            torch.cuda.synchronize()
+            torch.musa.synchronize()
             end_time = time.perf_counter()
             total_time = end_time - start_time
             total_tokens = generated.numel()
@@ -542,7 +542,7 @@ class TransformerGenerationModule(GenerationModule):
 
         # Free the first module since we have its state dict
         del first_generation_module
-        gc_cuda()
+        gc_musa()
 
         # Average weights from all checkpoints
         for i, checkpoint_dir in enumerate(checkpoint_dirs[1:], start=2):
@@ -566,7 +566,7 @@ class TransformerGenerationModule(GenerationModule):
 
             # Free memory from the temporary module and run garbage collection
             del next_state_dict
-            gc_cuda()
+            gc_musa()
 
         # Now load the final model on the target device with the correct dtype
         if dtype == DType.float32:
@@ -599,6 +599,6 @@ class TransformerGenerationModule(GenerationModule):
 
         final_generation_module.load_state_dict(merged_state_dict)
 
-        gc_cuda()
+        gc_musa()
 
         return final_generation_module

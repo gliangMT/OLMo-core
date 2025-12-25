@@ -44,7 +44,7 @@ from ..distributed.utils import (
 )
 from ..exceptions import OLMoConfigurationError
 from ..io import copy_file, file_exists, is_url, join_path, normalize_path
-from ..utils import cuda_sync_debug_mode, gc_cuda, get_default_thread_count
+from ..utils import musa_sync_debug_mode, gc_musa, get_default_thread_count
 from .callbacks import (
     Callback,
     CheckpointerCallback,
@@ -740,7 +740,7 @@ class Trainer:
         if self._single_thread_pool is not None:
             self._single_thread_pool.shutdown(wait=True, cancel_futures=False)
             self._single_thread_pool = None
-        gc_cuda()
+        gc_musa()
         barrier()
 
     def state_dict(self) -> TrainerStateDict:
@@ -1230,7 +1230,7 @@ class Trainer:
 
         canceling_rank = self._canceling_rank if self._canceling_rank is not None else -1
         # NOTE: this is a known host-device sync (potentially) so we don't need the warning
-        with cuda_sync_debug_mode(0):
+        with musa_sync_debug_mode(0):
             canceling_rank = all_reduce_value(
                 canceling_rank,
                 self.bookkeeping_device,
@@ -1257,7 +1257,7 @@ class Trainer:
         # NOTE: if training on GPU and `bookkeeping_device` is CPU, this triggers
         # host-device sync. It's unavoidable to have a host-device at some point, but we
         # prefer to do that early and then finish processing the metrics in a separate thread
-        # so CUDA training can continue.
+        # so MUSA training can continue.
         metrics_to_reduce = move_metrics(self._metrics, self.bookkeeping_device)
         self._metrics.clear()
 
@@ -1367,8 +1367,8 @@ class Trainer:
 
             if first_batch or self.global_step % self.metrics_collect_interval == 0:
                 self._log_metrics()
-                if torch.cuda.is_available():
-                    torch.cuda.set_sync_debug_mode("warn")
+                if torch.musa.is_available():
+                    torch.musa.set_sync_debug_mode("warn")
 
             first_batch = False
 

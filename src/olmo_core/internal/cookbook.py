@@ -154,7 +154,7 @@ def configure_default_callbacks(
     beaker_user = get_beaker_username()
     if beaker_user is not None:
         callbacks["beaker"] = BeakerCallback()
-    if torch.cuda.is_available():
+    if torch.musa.is_available():
         callbacks["gpu_monitor"] = GPUMemoryMonitorCallback()
 
     return callbacks

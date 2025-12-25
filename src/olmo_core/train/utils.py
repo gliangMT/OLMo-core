@@ -21,7 +21,7 @@ from ..distributed.utils import (
     get_world_size,
     is_distributed,
 )
-from ..utils import cuda_sync_debug_mode, move_to_device
+from ..utils import musa_sync_debug_mode, move_to_device
 from .common import ReduceType
 
 log = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class EnvRngStates(Config):
     python: LibRngState
     numpy: LibRngState
     torch: LibRngState
-    cuda: Optional[LibRngState] = None
+    musa: Optional[LibRngState] = None
 
     def restore(self) -> bool:
         all_restored = True
@@ -57,13 +57,13 @@ class EnvRngStates(Config):
         else:
             all_restored = False
 
-        if self.cuda is not None:
+        if self.musa is not None:
             if (
-                torch.cuda.is_available()
-                and torch.cuda.is_initialized()
-                and self.cuda.version == _get_cuda_version()
+                torch.musa.is_available()
+                and torch.musa.is_initialized()
+                and self.musa.version == _get_musa_version()
             ):
-                torch.cuda.set_rng_state(self.cuda.state)
+                torch.musa.set_rng_state(self.musa.state)
             else:
                 all_restored = False
 
@@ -74,10 +74,10 @@ class EnvRngStates(Config):
         python_rng = LibRngState(version=_get_python_version(), state=random.getstate())
         numpy_rng = LibRngState(version=_get_numpy_version(), state=np.random.get_state())
         torch_rng = LibRngState(version=_get_torch_version(), state=torch.random.get_rng_state())
-        cuda_rng: Optional[LibRngState] = None
-        if (cuda_version := _get_cuda_version()) is not None:
-            cuda_rng = LibRngState(version=cuda_version, state=torch.cuda.get_rng_state())
-        return cls(python=python_rng, numpy=numpy_rng, torch=torch_rng, cuda=cuda_rng)
+        musa_rng: Optional[LibRngState] = None
+        if (musa_version := _get_musa_version()) is not None:
+            musa_rng = LibRngState(version=musa_version, state=torch.musa.get_rng_state())
+        return cls(python=python_rng, numpy=numpy_rng, torch=torch_rng, musa=musa_rng)
 
     @classmethod
     def from_dict(
@@ -90,7 +90,7 @@ class EnvRngStates(Config):
             python=LibRngState(**data["python"]),
             numpy=LibRngState(**data["numpy"]),
             torch=LibRngState(**data["torch"]),
-            cuda=None if data.get("cuda") is None else LibRngState(**data["cuda"]),
+            musa=None if data.get("musa") is None else LibRngState(**data["musa"]),
         )
 
 
@@ -108,10 +108,10 @@ def _get_torch_version() -> Tuple[int, int]:
     return (version.major, version.minor)
 
 
-def _get_cuda_version() -> Optional[Tuple[int, int]]:
-    if torch.cuda.is_available() and torch.cuda.is_initialized():
-        assert torch.version.cuda is not None
-        version = parse_version(torch.version.cuda)
+def _get_musa_version() -> Optional[Tuple[int, int]]:
+    if torch.musa.is_available() and torch.musa.is_initialized():
+        assert torch.version.musa is not None
+        version = parse_version(torch.version.musa)
         return (version.major, version.minor)
     else:
         return None
@@ -127,14 +127,14 @@ def move_metrics(
         get_local_tensor(m)
         for step_metrics in source.values()
         for m in step_metrics.values()
-        # NOTE: compare device type since 'torch.device("cuda") != torch.device("cuda:0")'
+        # NOTE: compare device type since 'torch.device("musa") != torch.device("musa:0")'
         # even when both point to the same physical device.
         if m.device.type != device.type
     ]
     metrics_to_move: Optional[torch.Tensor] = None
     if metrics_to_move_list:
         # NOTE: this is a known host-device sync (potentially) so we don't need the warning
-        with cuda_sync_debug_mode(0):
+        with musa_sync_debug_mode(0):
             metrics_to_move = move_to_device(torch.stack(metrics_to_move_list), device)
 
     # Collect output with moved tensors.

@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from olmo_core.data import NumpyFSLDataLoader, NumpyFSLDataset
 from olmo_core.data.utils import melt_batch, truncate_batch
 from olmo_core.exceptions import OLMoConfigurationError
-from olmo_core.utils import gc_cuda
+from olmo_core.utils import gc_musa
 
 from ..train_module import TransformerTrainModule
 from .callback import Callback
@@ -135,8 +135,8 @@ class SequenceLengthSchedulerCallback(Callback):
         if new_seq_len != self._last_seq_len:
             log.info(f"Changing sequence length to {new_seq_len} per warm-up schedule")
             self._last_seq_len = new_seq_len
-            # Empty CUDA cache since shapes have now changed.
-            gc_cuda()
+            # Empty MUSA cache since shapes have now changed.
+            gc_musa()
 
     def post_train_batch(self):
         if not self.enabled or self.step > self.warmup_steps + 1:

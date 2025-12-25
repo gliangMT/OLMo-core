@@ -21,7 +21,7 @@ from olmo_core.eval.lm_evaluator import LMEvaluator
 from olmo_core.exceptions import OLMoConfigurationError
 from olmo_core.nn.lm_head import LMOutputWithLoss
 from olmo_core.utils import (
-    cuda_sync_debug_mode,
+    musa_sync_debug_mode,
     format_float,
     get_default_device,
     move_to_device,
@@ -132,7 +132,7 @@ class EvaluatorCallback(Callback):
                     logits, _, ce_loss, _ = output
 
                     # NOTE: might have host-device syncs here but that's okay.
-                    with cuda_sync_debug_mode(0):
+                    with musa_sync_debug_mode(0):
                         evaluator.update_metrics(batch, ce_loss, logits)
 
                 if self.eval_duration.due(step=eval_step, tokens=eval_tokens, epoch=1):
@@ -146,7 +146,7 @@ class EvaluatorCallback(Callback):
             # per evaluator.
             metrics_str = []
             evaluation_names = []
-            with cuda_sync_debug_mode(0):
+            with musa_sync_debug_mode(0):
                 metrics = evaluator.compute_metrics()
                 for name, value in metrics.items():
                     evaluation_names.append(name)

@@ -49,7 +49,7 @@ def small_transformer_config(n_layers: int = 2, use_rope: bool = True, **kwargs)
     [pytest.param(False, id="use_cache=False"), pytest.param(True, id="use_cache=True")],
 )
 def test_generation_module_basic(compile_model: bool, use_cache: bool):
-    device = torch.device("cuda")
+    device = torch.device("musa")
     dtype = DType.bfloat16
     seed_all(0)
 
@@ -129,7 +129,7 @@ def test_generation_module_basic(compile_model: bool, use_cache: bool):
 @requires_gpu
 def test_generation_module_state_dict():
     seed_all(0)
-    device = torch.device("cuda")
+    device = torch.device("musa")
     generation_config = GenerationConfig(
         max_length=16, pad_token_id=0, eos_token_id=2, use_cache=False
     )
@@ -158,7 +158,7 @@ def test_generation_module_state_dict():
 @pytest.mark.parametrize("eos_token_id", [1, 2])
 def test_generation_config_overrides(max_length: int, eos_token_id: int):
     seed_all(0)
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     generation_config = GenerationConfig(
         max_length=128, eos_token_id=1, pad_token_id=0, use_cache=False
@@ -185,7 +185,7 @@ def test_generation_config_overrides(max_length: int, eos_token_id: int):
 @requires_gpu
 def test_generation_module_config_build(tmp_path: Path):
     seed_all(0)
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     generation_config = GenerationConfig(
         max_length=24, do_sample=False, pad_token_id=0, eos_token_id=2, use_cache=False
@@ -223,7 +223,7 @@ def test_generation_module_config_build(tmp_path: Path):
 @requires_gpu
 def test_generation_module_stop_sequences():
     seed_all(0)
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     # Create generation config with stop tokens
     generation_config = GenerationConfig(
@@ -267,7 +267,7 @@ def test_generation_module_stop_sequences():
 @requires_gpu
 @requires_flash_attn_2
 def test_generation_with_attention_mask():
-    device = torch.device("cuda")
+    device = torch.device("musa")
     pad_token_id = 0
 
     generation_module = TransformerGenerationModule(
@@ -301,7 +301,7 @@ def test_generation_with_attention_mask():
 @requires_flash_attn_2
 @pytest.mark.parametrize("use_rope", [True, False], ids=["rope", "no-rope"])
 def test_left_padded_attention_mask_equivalence(use_rope):
-    device = torch.device("cuda")
+    device = torch.device("musa")
     pad_token_id = 0
 
     generation_config = GenerationConfig(
@@ -347,7 +347,7 @@ def test_generation_cache_consistency(batch_size: int):
     if not has_flash_attn_2:
         pytest.skip("flash-attn is required for KV cache usage")
 
-    device = torch.device("cuda")
+    device = torch.device("musa")
     model = small_transformer_config(dtype=DType.bfloat16, n_layers=1, use_flash=True).build()
     gen_config = GenerationConfig(max_length=128, pad_token_id=0, eos_token_id=1, use_cache=False)
     generation_module = TransformerGenerationModule(
@@ -388,7 +388,7 @@ def run_distributed_generation(
         dp_config=dp_config,
     )
 
-    device = torch.device("cuda", dist.get_rank())
+    device = torch.device("musa", dist.get_rank())
     input_ids = input_ids.to(device)
     if attention_mask is not None:
         attention_mask = attention_mask.to(device)
@@ -430,7 +430,7 @@ def test_generation_module_distributed_fsdp(
     transformer_config = small_transformer_config(dtype=DType.bfloat16, use_flash=has_flash_attn_2)
     model = transformer_config.build()
     generation_module = TransformerGenerationModule(
-        model=model, generation_config=generation_config, device=torch.device("cuda")
+        model=model, generation_config=generation_config, device=torch.device("musa")
     )
 
     # Save checkpoint
@@ -452,7 +452,7 @@ def test_generation_module_distributed_fsdp(
     run_distributed_test(
         run_distributed_generation,
         world_size=2,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             checkpoint_dir,
@@ -632,11 +632,11 @@ def test_from_checkpoints_can_generate(tmp_path: Path):
 
     # Merge both checkpoints
     merged_model = TransformerGenerationModule.from_checkpoints(
-        [checkpoint_dir1, checkpoint_dir2], device=torch.device("cuda")
+        [checkpoint_dir1, checkpoint_dir2], device=torch.device("musa")
     )
 
     # Verify the merged model can generate text
-    input_ids = torch.randint(0, config.vocab_size, (2, 10), device="cuda")
+    input_ids = torch.randint(0, config.vocab_size, (2, 10), device="musa")
     gen_output, _, _ = merged_model.generate_batch(input_ids, max_length=15, use_cache=False)
 
     # Verify generation output

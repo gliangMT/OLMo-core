@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 
 def init_distributed(
-    backend: str = "nccl",
+    backend: str = "mccl",
     timeout: timedelta = timedelta(minutes=30),
     shared_filesytem: Optional[bool] = True,
     **kwargs,
@@ -36,11 +36,11 @@ def init_distributed(
     """
     Initialize the distributed process group with the given backend(s) and check/set the
     relevant environment variables.
-    This also calls :func:`torch.cuda.set_device()` for backends that support CUDA.
+    This also calls :func:`torch.musa.set_device()` for backends that support MUSA.
     """
     # To mitigate the memory issue that collectives using async_op=True hold memory longer
     # than they should such as those in tensor parallelism.
-    set_env_var("TORCH_NCCL_AVOID_RECORD_STREAMS", "1")
+    set_env_var("TORCH_MCCL_AVOID_RECORD_STREAMS", "1")
 
     # Force processes to synchronize at init process group.
     set_env_var("TORCH_DIST_INIT_BARRIER", "1")
@@ -56,67 +56,67 @@ def init_distributed(
 
         # See https://beaker-docs.apps.allenai.org/experiments/distributed-training.html
         if "jupiter" in node_name:
-            set_env_var("NCCL_IB_HCA", "^=mlx5_bond_0")
+            set_env_var("MCCL_IB_HCA", "^=mlx5_bond_0")
             if multi_node:
                 # Only for multi-node
-                set_env_var("NCCL_SOCKET_IFNAME", "ib")
+                set_env_var("MCCL_SOCKET_IFNAME", "ib")
         elif "pluto" in node_name:
-            set_env_var("NCCL_IB_HCA", "^=mlx5_1,mlx5_2")
+            set_env_var("MCCL_IB_HCA", "^=mlx5_1,mlx5_2")
         elif "augusta" in node_name:
             # NOTE: For single-node training we still need all of these settings and we also
             # need host networking enabled so that the ethernet interface names don't change.
-            set_env_var("NCCL_CROSS_NIC", "0")
-            #  set_env_var("NCCL_ALGO", "Ring,Tree")
-            set_env_var("NCCL_PROTO", "Simple,LL128")
-            set_env_var("NCCL_MIN_NCHANNELS", "4")
-            set_env_var("NCCL_P2P_NET_CHUNKSIZE", "524288")
-            set_env_var("NCCL_P2P_PCI_CHUNKSIZE", "524288")
-            set_env_var("NCCL_P2P_NVL_CHUNKSIZE", "1048576")
-            set_env_var("NCCL_NVLSTREE_MAX_CHUNKSIZE", "131072")
-            set_env_var("NCCL_FASTRAK_NUM_FLOWS", "2")
-            set_env_var("NCCL_FASTRAK_ENABLE_CONTROL_CHANNEL", "0")
-            set_env_var("NCCL_BUFFSIZE", "8388608")
-            set_env_var("NCCL_FASTRAK_USE_SNAP", "1")
-            set_env_var("CUDA_VISIBLE_DEVICES", "0,1,2,3,4,5,6,7")
-            set_env_var("NCCL_NET_GDR_LEVEL", "PIX")
-            set_env_var("NCCL_FASTRAK_ENABLE_HOTPATH_LOGGING", "0")
+            set_env_var("MCCL_CROSS_NIC", "0")
+            #  set_env_var("MCCL_ALGO", "Ring,Tree")
+            set_env_var("MCCL_PROTO", "Simple,LL128")
+            set_env_var("MCCL_MIN_NCHANNELS", "4")
+            set_env_var("MCCL_P2P_NET_CHUNKSIZE", "524288")
+            set_env_var("MCCL_P2P_PCI_CHUNKSIZE", "524288")
+            set_env_var("MCCL_P2P_NVL_CHUNKSIZE", "1048576")
+            set_env_var("MCCL_NVLSTREE_MAX_CHUNKSIZE", "131072")
+            set_env_var("MCCL_FASTRAK_NUM_FLOWS", "2")
+            set_env_var("MCCL_FASTRAK_ENABLE_CONTROL_CHANNEL", "0")
+            set_env_var("MCCL_BUFFSIZE", "8388608")
+            set_env_var("MCCL_FASTRAK_USE_SNAP", "1")
+            set_env_var("MUSA_VISIBLE_DEVICES", "0,1,2,3,4,5,6,7")
+            set_env_var("MCCL_NET_GDR_LEVEL", "PIX")
+            set_env_var("MCCL_FASTRAK_ENABLE_HOTPATH_LOGGING", "0")
             set_env_var(
-                "NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS", str(int(timeout.total_seconds() * 1000))
+                "MCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS", str(int(timeout.total_seconds() * 1000))
             )
-            #  set_env_var("NCCL_NVLS_ENABLE", "0")
-            set_env_var("NCCL_USE_SNAP", "1")
-            set_env_var("NCCL_FASTRAK_USE_LLCM", "1")
-            set_env_var("NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY", "/dev/aperture_devices")
+            #  set_env_var("MCCL_NVLS_ENABLE", "0")
+            set_env_var("MCCL_USE_SNAP", "1")
+            set_env_var("MCCL_FASTRAK_USE_LLCM", "1")
+            set_env_var("MCCL_FASTRAK_LLCM_DEVICE_DIRECTORY", "/dev/aperture_devices")
             # NOTE: This path var must be set prior to launching Python
             #  set_env_var(
             #      "LD_LIBRARY_PATH",
             #      "/var/lib/tcpxo/lib64:" + os.environ.get("LD_LIBRARY_PATH", ""),
             #      override=True,
             #  )
-            set_env_var("NCCL_TUNER_PLUGIN", "libnccl-tuner.so")
+            set_env_var("MCCL_TUNER_PLUGIN", "libmccl-tuner.so")
             set_env_var(
-                "NCCL_TUNER_CONFIG_PATH", "/var/lib/tcpxo/lib64/a3plus_tuner_config_ll128.textproto"
+                "MCCL_TUNER_CONFIG_PATH", "/var/lib/tcpxo/lib64/a3plus_tuner_config_ll128.textproto"
             )
             set_env_var(
-                "NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE",
+                "MCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE",
                 "/var/lib/tcpxo/lib64/a3plus_guest_config_ll128.textproto",
             )
-            set_env_var("NCCL_FASTRAK_CTRL_DEV", "enp0s12")
+            set_env_var("MCCL_FASTRAK_CTRL_DEV", "enp0s12")
             set_env_var(
-                "NCCL_FASTRAK_IFNAME",
+                "MCCL_FASTRAK_IFNAME",
                 "enp6s0,enp7s0,enp13s0,enp14s0,enp134s0,enp135s0,enp141s0,enp142s0",
             )
-            set_env_var("NCCL_SOCKET_IFNAME", "enp0s12")
+            set_env_var("MCCL_SOCKET_IFNAME", "enp0s12")
             set_env_var(  # Add COLL here to log all collective operations. Extremely verbose, don't use for production.
-                "NCCL_DEBUG_SUBSYS", "INIT,NET"
+                "MCCL_DEBUG_SUBSYS", "INIT,NET"
             )
 
-    if backend_supports_cuda(backend):
-        # Set CUDA device.
+    if backend_supports_musa(backend):
+        # Set MUSA device.
         # NOTE: important to do this *before* initializing the process group to avoid
-        # other ranks initializing CUDA on GPU 0.
-        device = torch.device(f"cuda:{int(os.environ[OLMO_LOCAL_RANK_ENV_VAR])}")
-        torch.cuda.set_device(device)
+        # other ranks initializing MUSA on GPU 0.
+        device = torch.device(f"musa:{int(os.environ[OLMO_LOCAL_RANK_ENV_VAR])}")
+        torch.musa.set_device(device)
 
     log_or_print(log, f"Initializing process group with {timeout=}...")
     dist.init_process_group(backend, timeout=timeout, **kwargs)
@@ -403,15 +403,15 @@ def get_mesh_coordinates(mesh: "DeviceMesh", rank: Optional[int] = None) -> Opti
     return rank_coords[0].tolist() if rank_coords.size(0) > 0 else None
 
 
-def backend_supports_cuda(backend: Optional[str] = None) -> bool:
+def backend_supports_musa(backend: Optional[str] = None) -> bool:
     """
-    Check if a distributed backend supports CUDA tensors.
+    Check if a distributed backend supports MUSA tensors.
     """
     if backend is None and not is_distributed():
-        return torch.cuda.is_available()
+        return torch.musa.is_available()
 
     backend = backend or dist.get_backend()
-    if "nccl" in backend:
+    if "mccl" in backend:
         return True
     else:
         return False

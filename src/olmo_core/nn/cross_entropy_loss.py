@@ -93,12 +93,12 @@ class CrossEntropyLoss(nn.Module):
 
         self._compile_enabled = False
         if compile:
-            if torch.cuda.is_available():
+            if torch.musa.is_available():
                 log.info("Compiling loss function...")
                 self.compile()
                 self._compile_enabled = True
             else:
-                log.warning("Skipping loss compilation since CUDA is not available")
+                log.warning("Skipping loss compilation since MUSA is not available")
 
     @property
     def compile_enabled(self) -> bool:

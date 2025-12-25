@@ -109,8 +109,8 @@ def merge_checkpoints(
             # Free memory
             del state_dict
             gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            if torch.musa.is_available():
+                torch.musa.empty_cache()
 
         # Average and convert back to original dtypes
         log.info("Averaging weights and converting back to original dtypes...")

@@ -55,10 +55,10 @@ class SubCmd(StrEnum):
                     var_val = os.environ[var_name]
                     log.info(f"Env var {var_name} set to '{var_val}'")
 
-                mat = torch.rand(N, M, dtype=torch.float32).cuda(get_local_rank())
+                mat = torch.rand(N, M, dtype=torch.float32).musa(get_local_rank())
 
-                start_event = torch.cuda.Event(enable_timing=True)
-                end_event = torch.cuda.Event(enable_timing=True)
+                start_event = torch.musa.Event(enable_timing=True)
+                end_event = torch.musa.Event(enable_timing=True)
 
                 # do a few warm up iterations
                 for i in range(2):
@@ -73,7 +73,7 @@ class SubCmd(StrEnum):
                 algbw = torch.mean(torch.stack(algbw_gather))
 
                 # the 2*(n-1)/n busbw correction factor specific to all-reduce is explained here:
-                # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
+                # https://github.com/NVIDIA/mccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
                 # busbw reflects how optimally the hardware is used
                 n = dist.get_world_size()
                 busbw = algbw * (2 * (n - 1) / n)
@@ -127,12 +127,12 @@ def timed_allreduce(mat, start_event, end_event):
     dist.all_reduce(mat)
     end_event.record()
 
-    torch.cuda.synchronize()
+    torch.musa.synchronize()
     duration = start_event.elapsed_time(end_event) / 1000
 
     size = M * N * 4  # 4 is 4 bytes in fp32
-    # note that this is following the same math as NVIDIA/nccl-tests
-    algbw = torch.tensor([size / duration]).cuda(get_local_rank())
+    # note that this is following the same math as NVIDIA/mccl-tests
+    algbw = torch.tensor([size / duration]).musa(get_local_rank())
 
     # calculate mean across all ranks
     dist.reduce(algbw, dst=0, op=dist.ReduceOp.SUM)

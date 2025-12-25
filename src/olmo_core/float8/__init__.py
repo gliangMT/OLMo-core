@@ -59,7 +59,7 @@ class Float8Config(Config):
         if not self.enabled:
             return
 
-        if not (torch.cuda.is_available() and torch.cuda.get_device_capability() >= (8, 9)):
+        if not (torch.musa.is_available() and torch.musa.get_device_capability() >= (8, 9)):
             raise RuntimeError("Float8 training is only supported on SM89 or later")
 
         if self.ao_recipe is not None and self.ao is not None:

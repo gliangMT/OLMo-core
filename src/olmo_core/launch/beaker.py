@@ -71,7 +71,7 @@ __all__ = [
 BeakerPriority = Priority
 
 _DEFAULT_TORCH = "2.9.1".replace(".", "")
-_DEFAULT_CUDA = "12.8".replace(".", "")
+_DEFAULT_MUSA = "12.8".replace(".", "")
 
 
 class OLMoCoreBeakerImage(StrEnum):
@@ -84,36 +84,36 @@ class OLMoCoreBeakerImage(StrEnum):
     """
 
     # NOTE: when updating default images here, should also update images used in tests at .github/workflows/main.yml
-    stable = f"tylerr/olmo-core-tch{_DEFAULT_TORCH}cu{_DEFAULT_CUDA}-2025-11-25"
+    stable = f"tylerr/olmo-core-tch{_DEFAULT_TORCH}cu{_DEFAULT_MUSA}-2025-11-25"
     """
     Built with the latest compatible stable version of PyTorch.
     """
     stable_cu130 = f"tylerr/olmo-core-tch{_DEFAULT_TORCH}cu130-2025-11-25"
     """
-    The stable image with CUDA pinned to 13.0.
+    The stable image with MUSA pinned to 13.0.
     """
     stable_cu128 = f"tylerr/olmo-core-tch{_DEFAULT_TORCH}cu128-2025-11-25"
     """
-    The stable image with CUDA pinned to 12.8.
+    The stable image with MUSA pinned to 12.8.
     """
 
     # Sorted roughly from newest versions to oldest versions
     tch280_cu128 = "tylerr/olmo-core-tch280cu128-2025-11-25"
     """
-    Built with torch 2.8.0 and CUDA 12.8.
+    Built with torch 2.8.0 and MUSA 12.8.
     """
     tch271_cu128 = "tylerr/olmo-core-tch271cu128-2025-11-25"
     """
-    Built with torch 2.7.1 and CUDA 12.8.
+    Built with torch 2.7.1 and MUSA 12.8.
     """
     tch270_cu128 = "olmo-core-tch270cu128-2025-05-16"
     """
-    Built with torch 2.7.0 and CUDA 12.8.
+    Built with torch 2.7.0 and MUSA 12.8.
     Battle tested when training Olmo3 7B and 32B. No TransformerEngine or flash-attention-3.
     """
     tch271_cu126 = "olmo-core-tch271cu126-2025-09-15"
     """
-    Built with torch 2.7.1 and CUDA 12.6. No TransformerEngine or flash-attention-3.
+    Built with torch 2.7.1 and MUSA 12.6. No TransformerEngine or flash-attention-3.
     """
 
 
@@ -334,7 +334,7 @@ class BeakerLaunchConfig(Config):
         Default env vars to add to the experiment.
         """
         env_vars: List[Tuple[str, str]] = [
-            ("NCCL_DEBUG", "INFO"),
+            ("MCCL_DEBUG", "INFO"),
             (LOG_FILTER_TYPE_ENV_VAR, LogFilterType.local_rank0_only),
             ("OMP_NUM_THREADS", "8"),
             ("R2_PROFILE", "R2"),
@@ -956,7 +956,7 @@ def _parse_args():
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="""Set debugging env vars, like 'CUDA_LAUNCH_BLOCKING=1'.""",
+        help="""Set debugging env vars, like 'MUSA_LAUNCH_BLOCKING=1'.""",
     )
     parser.add_argument(
         "--dry-run",
@@ -992,8 +992,8 @@ def _parse_args():
 def _build_config(opts: argparse.Namespace, command: List[str]) -> BeakerLaunchConfig:
     env_vars: List[BeakerEnvVar] = []
     if opts.debug:
-        env_vars.append(BeakerEnvVar(name="CUDA_LAUNCH_BLOCKING", value="1"))
-        env_vars.append(BeakerEnvVar(name="NCCL_DEBUG", value="INFO"))
+        env_vars.append(BeakerEnvVar(name="MUSA_LAUNCH_BLOCKING", value="1"))
+        env_vars.append(BeakerEnvVar(name="MCCL_DEBUG", value="INFO"))
     for e in opts.env or []:
         if "=" not in e:
             raise ValueError(f"Invalid env var '{e}', must be in the form NAME=VALUE")

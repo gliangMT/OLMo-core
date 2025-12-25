@@ -40,7 +40,7 @@ def build_experiment_config(cli_context: CliContext) -> ExperimentConfig:
         beaker_image="petew/olmo-core-tch270cu128",
         workspace="ai2/long-contexts",
         num_nodes=32,
-        nccl_debug=True,
+        mccl_debug=True,
         # override priority from the CLI eg `--launch.priority=high`
     )
 

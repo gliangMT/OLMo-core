@@ -110,7 +110,7 @@ def build_launch_config(
     task_name: str = "train",
     workspace: str = "ai2/OLMo-core",
     budget: str = "ai2/oe-base",
-    nccl_debug: Union[bool, str] = False,
+    mccl_debug: Union[bool, str] = False,
     flight_recorder: bool = False,
     beaker_image: str = OLMoCoreBeakerImage.stable,
     num_nodes: int = 1,
@@ -187,16 +187,16 @@ def build_launch_config(
     ]
 
     env_vars: List[BeakerEnvVar] = []
-    if isinstance(nccl_debug, str):
-        env_vars.append(BeakerEnvVar(name="NCCL_DEBUG", value=nccl_debug))
+    if isinstance(mccl_debug, str):
+        env_vars.append(BeakerEnvVar(name="MCCL_DEBUG", value=mccl_debug))
     else:
-        env_vars.append(BeakerEnvVar(name="NCCL_DEBUG", value="INFO" if nccl_debug else "WARN"))
+        env_vars.append(BeakerEnvVar(name="MCCL_DEBUG", value="INFO" if mccl_debug else "WARN"))
     if flight_recorder:
         # https://github.com/pytorch/tutorials/blob/main/unstable_source/flight_recorder_tutorial.rst
-        fr_dump_location = Path(BEAKER_RESULT_DIR) / "flightrecorder" / "nccl_trace_rank_"
+        fr_dump_location = Path(BEAKER_RESULT_DIR) / "flightrecorder" / "mccl_trace_rank_"
         env_vars += [
-            BeakerEnvVar(name="TORCH_NCCL_TRACE_BUFFER_SIZE", value="2000"),
-            BeakerEnvVar(name="TORCH_NCCL_DUMP_ON_TIMEOUT", value="1"),
+            BeakerEnvVar(name="TORCH_MCCL_TRACE_BUFFER_SIZE", value="2000"),
+            BeakerEnvVar(name="TORCH_MCCL_DUMP_ON_TIMEOUT", value="1"),
             BeakerEnvVar(name="TORCH_FR_DUMP_TEMP_FILE", value=str(fr_dump_location)),
         ]
 

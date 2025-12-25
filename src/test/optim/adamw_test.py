@@ -13,7 +13,7 @@ from olmo_core.distributed.checkpoint import (
 )
 from olmo_core.optim import AdamWConfig, OptimGroupOverride, SkipStepAdamWConfig
 from olmo_core.testing import DEVICES
-from olmo_core.utils import cuda_sync_debug_mode
+from olmo_core.utils import musa_sync_debug_mode
 
 
 class MyModel(nn.Module):
@@ -88,7 +88,7 @@ def test_adamw(device: torch.device, tmp_path):
 @pytest.mark.parametrize("dtype", [None, DType.bfloat16])
 def test_skip_step_adamw(device: torch.device, dtype: Optional[DType]):
     if dtype == DType.bfloat16 and device.type == "cpu":
-        pytest.skip("bfloat16 dtype requires cuda")
+        pytest.skip("bfloat16 dtype requires musa")
 
     config = SkipStepAdamWConfig(dtype=dtype)
     model = MyModel().train().to(device)
@@ -107,7 +107,7 @@ def test_skip_step_adamw(device: torch.device, dtype: Optional[DType]):
 @pytest.mark.parametrize("dtype", [None, DType.bfloat16])
 def test_skip_step_adamw_foreach(device: torch.device, dtype: Optional[DType]):
     if dtype == DType.bfloat16 and device.type == "cpu":
-        pytest.skip("bfloat16 dtype requires cuda")
+        pytest.skip("bfloat16 dtype requires musa")
 
     config = SkipStepAdamWConfig(dtype=dtype, foreach=True)
     model = MyModel().train().to(device)
@@ -160,7 +160,7 @@ def test_adamw_equivalence(
     for step_idx in range(5):
         inp = torch.randint(0, 128, (4, 8), device=device)
 
-        with cuda_sync_debug_mode(debug_mode="error"):
+        with musa_sync_debug_mode(debug_mode="error"):
             for optim, model in [(optim1, model1), (optim2, model2), (optim3, model3)]:
                 optim.zero_grad(set_to_none=True)
                 loss = model(inp).sum()

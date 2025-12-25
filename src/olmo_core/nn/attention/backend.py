@@ -703,7 +703,7 @@ class TEAttentionBackend(AttentionBackend):
         self.te_attn.set_context_parallel_group(
             cp_group=cp_mesh.get_group(),
             cp_global_ranks=dist.get_process_group_ranks(cp_mesh.get_group()),
-            cp_stream=torch.cuda.default_stream(),
+            cp_stream=torch.musa.default_stream(),
             #  cp_stream=get_or_init_stream("cp"),  # this doesn't seem to help
             cp_comm_type="p2p",
         )

@@ -569,7 +569,7 @@ class NumpyDataLoaderBase(TextDataLoaderBase):
                     _IterableDatasetWrapper(self),
                     batch_size=None,
                     num_workers=self.num_workers,
-                    pin_memory=self.target_device_type == "cuda" and self.num_workers > 0,
+                    pin_memory=self.target_device_type == "musa" and self.num_workers > 0,
                     prefetch_factor=self.prefetch_factor,
                     persistent_workers=False,
                     timeout=0,

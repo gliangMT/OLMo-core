@@ -89,7 +89,7 @@ def _run_tensor_parallel_block(
 def test_tensor_parallel_transformer_block(
     backend: str, block_cls: Type[TransformerBlock], attn_kwargs: Dict[str, Any], tmp_path
 ):
-    device = torch.device("cuda") if "nccl" in backend else torch.device("cpu")
+    device = torch.device("musa") if "mccl" in backend else torch.device("cpu")
 
     seed_all(0)
     d_model = 128

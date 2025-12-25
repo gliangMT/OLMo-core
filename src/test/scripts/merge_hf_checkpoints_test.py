@@ -472,10 +472,10 @@ def test_device_parameter(tmp_path):
     result = run_merge_hf_cli([str(ckpt)], str(output), device="cpu")
     assert result.exit_code == 0
 
-    # Test with cuda if available
-    if torch.cuda.is_available():
-        output_cuda = tmp_path / "merged_cuda"
-        result = run_merge_hf_cli([str(ckpt)], str(output_cuda), device="cuda")
+    # Test with musa if available
+    if torch.musa.is_available():
+        output_musa = tmp_path / "merged_musa"
+        result = run_merge_hf_cli([str(ckpt)], str(output_musa), device="musa")
         assert result.exit_code == 0
 
 

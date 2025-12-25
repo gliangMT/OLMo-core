@@ -42,7 +42,7 @@ def _run_tensor_parallel_feed_forward(
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_tensor_parallel_feed_forward(backend: str, tmp_path):
-    device = torch.device("cuda") if "nccl" in backend else torch.device("cpu")
+    device = torch.device("musa") if "mccl" in backend else torch.device("cpu")
 
     seed_all(0)
     d_model = 128

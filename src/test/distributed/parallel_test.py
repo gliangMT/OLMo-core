@@ -166,16 +166,16 @@ def test_build_world_mesh_cpu(
 def test_build_world_mesh_gpu(
     dp_type: DataParallelType, dp: int, tp: int, cp: int, pp: int, ep: int, world_size: int
 ):
-    if torch.cuda.device_count() < world_size:
+    if torch.musa.device_count() < world_size:
         pytest.skip(
             "Not enough GPUs available for this test (req: {}, avail: {})".format(
-                world_size, torch.cuda.device_count()
+                world_size, torch.musa.device_count()
             )
         )
 
     run_distributed_test(
         _build_and_check_world_mesh,
-        backend="nccl",
+        backend="mccl",
         world_size=world_size,
         func_args=(dp, tp, cp, pp, ep, dp_type),
     )

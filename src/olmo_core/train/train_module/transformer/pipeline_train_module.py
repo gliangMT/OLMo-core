@@ -41,7 +41,7 @@ from olmo_core.nn.lm_head import LMOutputWithLoss
 from olmo_core.nn.transformer import Transformer
 from olmo_core.optim import OptimConfig, SkipStepOptimizer
 from olmo_core.optim.scheduler import Scheduler
-from olmo_core.utils import gc_cuda, get_default_device, log_once, move_to_device
+from olmo_core.utils import gc_musa, get_default_device, log_once, move_to_device
 
 from ...common import MetricMergeStrategy, ReduceType
 from ..train_module import EvalBatchSizeUnit, EvalBatchSpec, TrainModule
@@ -357,7 +357,7 @@ class TransformerPipelineTrainModule(TrainModule):
                 state_dict["model"],
                 options=self.state_dict_load_opts,
             )
-            gc_cuda()
+            gc_musa()
             if load_optim:
                 dist_cp_sd.set_optimizer_state_dict(
                     model,
@@ -365,7 +365,7 @@ class TransformerPipelineTrainModule(TrainModule):
                     state_dict["optim"],
                     options=self.state_dict_load_opts,
                 )
-                gc_cuda()
+                gc_musa()
 
     def train_batch(self, batch: Dict[str, Any], dry_run: bool = False):
         # Set model to train mode if it isn't already.

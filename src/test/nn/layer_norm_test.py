@@ -20,10 +20,10 @@ from olmo_core.testing import requires_flash_attn_2, requires_gpu
 )
 def test_fused_rms_norm(bias, dtype):
     dim = 64
-    norm = RMSNorm(size=dim, bias=bias, init_device="cuda")
-    norm_fused = FusedRMSNorm(size=dim, bias=bias, init_device="cuda")
+    norm = RMSNorm(size=dim, bias=bias, init_device="musa")
+    norm_fused = FusedRMSNorm(size=dim, bias=bias, init_device="musa")
 
-    x = torch.randn(4, dim, device="cuda", dtype=dtype)
+    x = torch.randn(4, dim, device="musa", dtype=dtype)
     y1 = norm(x)
     y2 = norm_fused(x)
     torch.testing.assert_close(y1, y2)

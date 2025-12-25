@@ -45,7 +45,7 @@ def test_moe(moe_type: MoEType, shared: bool, dtype: torch.dtype):
         z_loss_weight=0.1,
         dtype=DType.from_pt(dtype),
     )
-    moe = config.build(d_model=d_model, init_device="cuda")
+    moe = config.build(d_model=d_model, init_device="musa")
 
     # Check num params calculation.
     num_params = 0
@@ -59,7 +59,7 @@ def test_moe(moe_type: MoEType, shared: bool, dtype: torch.dtype):
 
     # Run forward pass.
     B, S = 2, 16
-    x = torch.randn(B, S, d_model, dtype=dtype, device="cuda", requires_grad=True)
+    x = torch.randn(B, S, d_model, dtype=dtype, device="musa", requires_grad=True)
 
     output = moe(x)
     assert output.shape == x.shape
@@ -171,7 +171,7 @@ def test_moe_with_expert_parallelism(
     """
     seed_all(42)
 
-    device = torch.device("cuda")
+    device = torch.device("musa")
 
     d_model = 8
     config = MoEConfig(
@@ -216,7 +216,7 @@ def test_moe_with_expert_parallelism(
 
     run_distributed_test(
         run_moe_with_expert_parallelism,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             tmp_path,

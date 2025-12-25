@@ -43,7 +43,7 @@ from torch.distributed.checkpoint.metadata import Metadata, TensorStorageMetadat
 from olmo_core.aliases import PathOrStr
 from olmo_core.config import StrEnum
 from olmo_core.io import clear_directory, dir_is_empty, is_url, normalize_path
-from olmo_core.utils import gc_cuda, get_element_size, wait_for
+from olmo_core.utils import gc_musa, get_element_size, wait_for
 
 from ..utils import barrier, get_fs_local_rank, is_distributed
 from .filesystem import RemoteFileSystemReader, RemoteFileSystemWriter
@@ -367,7 +367,7 @@ def load_model_and_optim_state(
     dist_cp_sd.set_model_state_dict(
         model, state_dict["model"], options=dist_cp_sd.StateDictOptions(strict=strict)
     )
-    gc_cuda()
+    gc_musa()
 
     if optim is not None:
         dist_cp_sd.set_optimizer_state_dict(
@@ -378,7 +378,7 @@ def load_model_and_optim_state(
                 strict=strict, flatten_optimizer_state_dict=flatten_optimizer_state
             ),
         )
-        gc_cuda()
+        gc_musa()
 
 
 class UnshardStrategyType(StrEnum):
@@ -588,7 +588,7 @@ def unshard_checkpoint(
 
         save(state_dict[prefix], path)
         del state_dict
-        gc_cuda()
+        gc_musa()
 
     model_path, model_chunks = get_chunks("model")
     for chunk_path, chunk_keys in track(

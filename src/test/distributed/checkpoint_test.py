@@ -29,11 +29,11 @@ from olmo_core.utils import get_default_device
 def run_save_and_load_torch_fsdp_model(dir, model_factory, model_data_factory, use_orig_params):
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-    fsdp_model = FSDP(model_factory().cuda(), use_orig_params=use_orig_params)
+    fsdp_model = FSDP(model_factory().musa(), use_orig_params=use_orig_params)
     optim = torch.optim.AdamW(fsdp_model.parameters())
 
     # Take a train step to initialize optimizer state.
-    fsdp_model(model_data_factory().cuda()).sum().backward()
+    fsdp_model(model_data_factory().musa()).sum().backward()
     optim.step()
 
     # Save checkpoint.
@@ -41,7 +41,7 @@ def run_save_and_load_torch_fsdp_model(dir, model_factory, model_data_factory, u
     dist.barrier()
 
     # Now create a new fsdp model and load that state.
-    fsdp_model2 = FSDP(model_factory().cuda(), use_orig_params=use_orig_params)
+    fsdp_model2 = FSDP(model_factory().musa(), use_orig_params=use_orig_params)
     optim2 = torch.optim.AdamW(fsdp_model2.parameters())
     load_model_and_optim_state(dir, fsdp_model2, optim2)
 
@@ -79,7 +79,7 @@ def test_save_and_load_torch_fsdp_model(
 ):
     run_distributed_test(
         run_save_and_load_torch_fsdp_model,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             tmp_path,

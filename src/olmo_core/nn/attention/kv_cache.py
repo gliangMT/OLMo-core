@@ -76,7 +76,7 @@ class KVCacheManager(nn.Module):
             # The cache can be large so we explicitly free it before reallocating
             del self.cache
             gc.collect()
-            torch.cuda.empty_cache()
+            torch.musa.empty_cache()
 
         k = self.k_cache.new_zeros(self.kv_cache_shape)
         v = self.v_cache.new_zeros(self.kv_cache_shape)

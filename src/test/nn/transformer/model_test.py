@@ -53,7 +53,7 @@ log = logging.getLogger(__name__)
 @pytest.mark.parametrize(
     "init_device, device",
     [
-        pytest.param("cpu", "cuda", id="cpu->cuda", marks=GPU_MARKS),
+        pytest.param("cpu", "musa", id="cpu->musa", marks=GPU_MARKS),
         pytest.param("cpu", "cpu", id="cpu->cpu"),
     ],
 )
@@ -107,7 +107,7 @@ def check_ngpt_matrices(model: nn.Module, d_model: int):
 @pytest.mark.parametrize(
     "init_device, device",
     [
-        pytest.param("cpu", "cuda", id="cpu->cuda", marks=GPU_MARKS),
+        pytest.param("cpu", "musa", id="cpu->musa", marks=GPU_MARKS),
         pytest.param("cpu", "cpu", id="cpu->cpu"),
     ],
 )
@@ -153,7 +153,7 @@ def run_ngpt_with_fsdp2():
 
 @requires_multi_gpu
 def test_ngpt_with_fsdp2():
-    run_distributed_test(run_ngpt_with_fsdp2, backend="nccl", start_method="spawn")
+    run_distributed_test(run_ngpt_with_fsdp2, backend="mccl", start_method="spawn")
 
 
 def get_transformer_config(
@@ -220,7 +220,7 @@ def run_tensor_parallel_transformer(checkpoint_dir, outputs_path, architecture: 
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("architecture", ["olmo2", "llama"])
 def test_tensor_parallel_transformer(backend: str, architecture: str, tmp_path):
-    device = torch.device("cuda") if "nccl" in backend else torch.device("cpu")
+    device = torch.device("musa") if "mccl" in backend else torch.device("cpu")
     config = get_transformer_config(architecture)
     model = config.build()
     model.init_weights(device=device, max_seq_len=512)
@@ -274,7 +274,7 @@ def run_context_parallel_transformer(checkpoint_dir, outputs_path, architecture:
 @pytest.mark.parametrize("architecture", ["olmo2"])
 @pytest.mark.skip("known precision issues with ring-flash-attn")
 def test_context_parallel_transformer(architecture: str, tmp_path):
-    device = torch.device("cuda")
+    device = torch.device("musa")
     config = get_transformer_config(architecture, dtype=torch.bfloat16)
     config.block.attention.use_flash = True
 
@@ -291,7 +291,7 @@ def test_context_parallel_transformer(architecture: str, tmp_path):
 
     run_distributed_test(
         run_context_parallel_transformer,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             checkpoint_dir,
@@ -325,12 +325,12 @@ def run_init_with_hsdp():
 
 @requires_multi_gpu
 def test_init_with_hsdp():
-    if torch.cuda.device_count() < 4:
+    if torch.musa.device_count() < 4:
         pytest.skip("Requires 4 GPUs")
 
     run_distributed_test(
         run_init_with_hsdp,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         world_size=4,
     )
@@ -410,7 +410,7 @@ def test_moe_hybrid_combined_forward(
 ):
     run_distributed_test(
         run_moe_hybrid_combined_forward,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             dropless,

@@ -29,6 +29,14 @@
   </a>
 </p>
 
+## MUSA Develop
+### Installation
+```bash
+cd OLMo-core
+pip install -e .[all]
+```
+
+# Original Docs
 ## Installation
 
 First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system and hardware.

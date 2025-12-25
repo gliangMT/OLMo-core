@@ -179,7 +179,7 @@ class ComposableDataLoader(TextDataLoaderBase):
     :param num_threads: The number of threads to use for loading data within each worker process.
     :param num_workers: The number of worker processes to use for loading data.
     :param prefetch_factor: The number of batches to prefetch from each worker process.
-    :param target_device_type: The type of device that batches will be sent to, typically either "cpu" or "cuda".
+    :param target_device_type: The type of device that batches will be sent to, typically either "cpu" or "musa".
     :param generate_doc_lengths: Whether to generate document lengths for each instance needed for
       intra-document masking.
     :param instance_filter_config: Optional configuration for filtering instances based on
@@ -433,7 +433,7 @@ class ComposableDataLoader(TextDataLoaderBase):
                     _IterableDataLoaderWrapper(self),
                     batch_size=None,
                     num_workers=self.num_workers,
-                    pin_memory=self.target_device_type == "cuda" and self.num_workers > 0,
+                    pin_memory=self.target_device_type == "musa" and self.num_workers > 0,
                     prefetch_factor=self.prefetch_factor,
                     persistent_workers=False,
                     timeout=0,

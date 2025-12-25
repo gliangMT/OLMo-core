@@ -112,8 +112,8 @@ def convert_checkpoint_to_hf(
                 log.info(
                     f"Fused attention requires flash attention for {block_label}, using GPU and {backend} backend for conversion and validation"
                 )
-                device = torch.device("cuda")
-                validation_device = torch.device("cuda")
+                device = torch.device("musa")
+                validation_device = torch.device("musa")
                 attention_config.backend = backend
             except RuntimeError as e:
                 raise RuntimeError(

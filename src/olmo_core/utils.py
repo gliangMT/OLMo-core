@@ -131,20 +131,20 @@ def get_default_device() -> torch.device:
 
     from .distributed.utils import (
         backend_supports_cpu,
-        backend_supports_cuda,
+        backend_supports_musa,
         is_distributed,
     )
 
     if is_distributed():
         backend = dist.get_backend()
-        if backend_supports_cuda(backend):
-            return torch.device("cuda")
+        if backend_supports_musa(backend):
+            return torch.device("musa")
         elif backend_supports_cpu(backend):
             return torch.device("cpu")
         else:
             raise NotImplementedError(backend)
-    elif torch.cuda.is_available():
-        return torch.device("cuda")
+    elif torch.musa.is_available():
+        return torch.device("musa")
     elif torch.mps.is_available():
         return torch.device("mps")
     else:
@@ -166,7 +166,7 @@ def seed_all(seed: int):
     torch.manual_seed(seed)
     # torch.manual_seed may call manual_seed_all but calling it again here
     # to make sure it gets called at least once
-    torch.cuda.manual_seed_all(seed)
+    torch.musa.manual_seed_all(seed)
 
 
 def same_storage(x: torch.Tensor, y: torch.Tensor) -> bool:
@@ -178,13 +178,13 @@ def same_storage(x: torch.Tensor, y: torch.Tensor) -> bool:
     return (x_ptrs <= y_ptrs) or (y_ptrs <= x_ptrs)
 
 
-def gc_cuda():
+def gc_musa():
     """
-    Run garbage collection, including emptying the CUDA cache.
+    Run garbage collection, including emptying the MUSA cache.
     """
     gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    if torch.musa.is_available():
+        torch.musa.empty_cache()
 
 
 def has_flash_attn() -> bool:
@@ -419,12 +419,12 @@ def filter_warnings():
         action="ignore",
         category=UserWarning,
         message="Synchronization debug mode is a prototype feature.*",
-        module="torch.cuda",
+        module="torch.musa",
     )
     warnings.filterwarnings(
         action="ignore",
         category=UserWarning,
-        message="TORCH_NCCL_AVOID_RECORD_STREAMS=1 has no effect .*",
+        message="TORCH_MCCL_AVOID_RECORD_STREAMS=1 has no effect .*",
     )
     warnings.filterwarnings(
         action="ignore",
@@ -691,20 +691,20 @@ def flatten_dict(d: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @contextmanager
-def cuda_sync_debug_mode(debug_mode: Union[int, str]):
+def musa_sync_debug_mode(debug_mode: Union[int, str]):
     """
-    A context manager for temporarily setting the CUDA sync debug mode.
+    A context manager for temporarily setting the MUSA sync debug mode.
     """
     current_mode: Optional[int] = None
 
     try:
-        if torch.cuda.is_available():
-            current_mode = torch.cuda.get_sync_debug_mode()
-            torch.cuda.set_sync_debug_mode(debug_mode)
+        if torch.musa.is_available():
+            current_mode = torch.musa.get_sync_debug_mode()
+            torch.musa.set_sync_debug_mode(debug_mode)
         yield
     finally:
         if current_mode is not None:
-            torch.cuda.set_sync_debug_mode(current_mode)
+            torch.musa.set_sync_debug_mode(current_mode)
 
 
 def get_element_size(dtype: torch.dtype) -> int:
@@ -742,14 +742,14 @@ def min_value_of_dtype(dtype: torch.dtype):
     return info_value_of_dtype(dtype).min
 
 
-_CUDA_STREAMS: Dict[str, torch.cuda.Stream] = {}
+_MUSA_STREAMS: Dict[str, torch.musa.Stream] = {}
 
 
-def get_or_init_stream(id: str, priority: int = 0) -> torch.cuda.Stream:
-    global _CUDA_STREAMS
-    if id in _CUDA_STREAMS:
-        return _CUDA_STREAMS[id]
+def get_or_init_stream(id: str, priority: int = 0) -> torch.musa.Stream:
+    global _MUSA_STREAMS
+    if id in _MUSA_STREAMS:
+        return _MUSA_STREAMS[id]
     else:
-        stream = cast(torch.cuda.Stream, torch.cuda.Stream(priority=priority))
-        _CUDA_STREAMS[id] = stream
+        stream = cast(torch.musa.Stream, torch.musa.Stream(priority=priority))
+        _MUSA_STREAMS[id] = stream
         return stream

@@ -20,9 +20,9 @@ from olmo_core.utils import get_default_device
 @requires_gpu
 def test_mlp():
     mlp = MoEMLP(
-        d_model=128, hidden_size=256, num_experts=2, init_device="cuda", dtype=torch.bfloat16
+        d_model=128, hidden_size=256, num_experts=2, init_device="musa", dtype=torch.bfloat16
     )
-    x = torch.randn(2, 3, 128, device="cuda", dtype=torch.bfloat16)
+    x = torch.randn(2, 3, 128, device="musa", dtype=torch.bfloat16)
     out = mlp(x)
     assert out.shape == (2, 3, 128)
 
@@ -31,10 +31,10 @@ def test_mlp():
 @requires_grouped_gemm
 def test_dropless_mlp():
     mlp = DroplessMoEMLP(
-        d_model=128, hidden_size=256, num_experts=2, init_device="cuda", dtype=torch.bfloat16
+        d_model=128, hidden_size=256, num_experts=2, init_device="musa", dtype=torch.bfloat16
     )
-    x = torch.randn(5, 128, device="cuda", dtype=torch.bfloat16)
-    tokens_per_expert = torch.tensor([3, 2], device="cuda")
+    x = torch.randn(5, 128, device="musa", dtype=torch.bfloat16)
+    tokens_per_expert = torch.tensor([3, 2], device="musa")
     out = mlp(x, tokens_per_expert)
     assert out.shape == (5, 128)
 
@@ -54,7 +54,7 @@ def run_mlp_with_expert_parallelism():
     mlp.to_empty(device=get_default_device())
     assert get_local_tensor(mlp.w1).shape == (2 * 128, 256)
 
-    x = torch.randn(2, 3, 128, device="cuda", dtype=torch.bfloat16)
+    x = torch.randn(2, 3, 128, device="musa", dtype=torch.bfloat16)
     out = mlp(x)
 
     assert out.shape == (2, 3, 128)
@@ -62,7 +62,7 @@ def run_mlp_with_expert_parallelism():
 
 @requires_multi_gpu
 def test_mlp_with_expert_parallelism():
-    run_distributed_test(run_mlp_with_expert_parallelism, backend="nccl", start_method="spawn")
+    run_distributed_test(run_mlp_with_expert_parallelism, backend="mccl", start_method="spawn")
 
 
 def run_dropless_mlp_with_expert_parallelism():
@@ -80,8 +80,8 @@ def run_dropless_mlp_with_expert_parallelism():
     mlp.to_empty(device=get_default_device())
     assert get_local_tensor(mlp.w1).shape == (2 * 256, 128)
 
-    x = torch.randn(5, 128, device="cuda", dtype=torch.bfloat16)
-    tokens_per_expert = torch.tensor([2, 3], device="cuda")
+    x = torch.randn(5, 128, device="musa", dtype=torch.bfloat16)
+    tokens_per_expert = torch.tensor([2, 3], device="musa")
     out = mlp(x, tokens_per_expert)
 
     assert out.shape == (5, 128)
@@ -91,5 +91,5 @@ def run_dropless_mlp_with_expert_parallelism():
 @requires_grouped_gemm
 def test_dropless_mlp_with_expert_parallelism():
     run_distributed_test(
-        run_dropless_mlp_with_expert_parallelism, backend="nccl", start_method="spawn"
+        run_dropless_mlp_with_expert_parallelism, backend="mccl", start_method="spawn"
     )

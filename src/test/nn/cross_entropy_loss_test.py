@@ -43,7 +43,7 @@ def run_cross_entropy_loss_parallel(
     loss: torch.Tensor,
 ):
     # Init device mesh.
-    tp_mesh = init_device_mesh("cuda", (get_world_size(),), mesh_dim_names=("tp",))
+    tp_mesh = init_device_mesh("musa", (get_world_size(),), mesh_dim_names=("tp",))
 
     # Put tensors on target device and potentially distributed over the device mesh .
     logits = distribute_tensor(
@@ -99,8 +99,8 @@ def test_cross_entropy_loss_parallel(
         reduction=reduction, compile=compile, z_loss_multiplier=z_loss_multiplier
     )
 
-    labels = torch.randint(0, V, (B, S), device="cuda")
-    logits = torch.randn(B, S, V, device="cuda", requires_grad=True)
+    labels = torch.randint(0, V, (B, S), device="musa")
+    logits = torch.randn(B, S, V, device="musa", requires_grad=True)
     labels[0][2] = -100
     labels[2][9] = -100
     labels[3][12] = -100
@@ -116,7 +116,7 @@ def test_cross_entropy_loss_parallel(
     run_distributed_test(
         run_cross_entropy_loss_parallel,
         world_size=2,
-        backend="nccl",
+        backend="mccl",
         start_method="spawn",
         func_args=(
             compile,

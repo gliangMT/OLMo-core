@@ -85,7 +85,7 @@ log = logging.getLogger(__name__)
 def prepare_training_environment(
     *,
     seed: Optional[int] = None,
-    backend: Optional[str] = "cpu:gloo,cuda:nccl",
+    backend: Optional[str] = "cpu:gloo,musa:mccl",
     timeout: timedelta = timedelta(minutes=15),
     log_filter_type: Optional[LogFilterType] = None,
     shared_filesystem: Optional[bool] = None,
@@ -97,8 +97,8 @@ def prepare_training_environment(
     .. tip::
         Internally this calls:
 
-        - :func:`~olmo_core.distributed.utils.init_distributed()`, which also calls :func:`torch.cuda.set_device()`
-          for backends that support CUDA, otherwise :func:`torch.set_default_device()`.
+        - :func:`~olmo_core.distributed.utils.init_distributed()`, which also calls :func:`torch.musa.set_device()`
+          for backends that support MUSA, otherwise :func:`torch.set_default_device()`.
         - :func:`~olmo_core.utils.prepare_cli_environment()`
 
         So there's no need to call those separately.
@@ -109,7 +109,7 @@ def prepare_training_environment(
 
     :param seed: The seed to initialize RNG states with.
     :param backend: The distributed backend to use, if any. Set to ``None`` for non-distributed training.
-        When using NCCL, ideally you should also include a CPU-only backend (the default) like GLOO,
+        When using MCCL, ideally you should also include a CPU-only backend (the default) like GLOO,
         which allows the trainer to run async checkpointing and bookkeeping collectives on the CPU
         backend without blocking training operations.
     :param timeout: The timeout for initializing the distributed process group.

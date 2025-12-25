@@ -52,9 +52,9 @@ class ProfilerCallback(Callback):
     """
     Whether to track tensor memory allocation/deallocation
     """
-    enable_cuda_sync_events: bool = False
+    enable_musa_sync_events: bool = False
     """
-    Whether to enable recording of CUDA sync events. Useful for critical-path analysis with
+    Whether to enable recording of MUSA sync events. Useful for critical-path analysis with
         https://hta.readthedocs.io/en/latest/source/features/lightweight_critical_path_analysis.html
     """
     enabled: bool = True
@@ -141,12 +141,12 @@ class ProfilerCallback(Callback):
             skip_first=self.skip_first,
         )
         activities = [ProfilerActivity.CPU]
-        if self.trainer.device.type == "cuda":
-            activities.append(ProfilerActivity.CUDA)
+        if self.trainer.device.type == "musa":
+            activities.append(ProfilerActivity.MUSA)
 
         experimental_config = None
-        if self.enable_cuda_sync_events:
-            experimental_config = _ExperimentalConfig(enable_cuda_sync_events=True)
+        if self.enable_musa_sync_events:
+            experimental_config = _ExperimentalConfig(enable_musa_sync_events=True)
 
         self._exit_stack = ExitStack()
         self._profiler = self._exit_stack.enter_context(
@@ -174,7 +174,7 @@ class ProfilerCallback(Callback):
 
     def _on_trace_ready(self, prof):
         assert self._profiler is not None
-        output = self._profiler.key_averages().table(sort_by="self_cuda_time_total", row_limit=32)
+        output = self._profiler.key_averages().table(sort_by="self_musa_time_total", row_limit=32)
         log.info(f"Profile by total GPU time at step {self._profiler.step_num}:\n{output}")
         output = self._profiler.key_averages().table(sort_by="self_cpu_time_total", row_limit=32)
         log.info(f"Profile by total CPU time at step {self._profiler.step_num}:\n{output}")

@@ -96,7 +96,7 @@ class ExperimentConfig(Config):
     train_module: TrainModuleConfig
     trainer: TrainerConfig
     init_seed: int = 12536
-    backend: Optional[str] = "cpu:gloo,cuda:nccl"
+    backend: Optional[str] = "cpu:gloo,musa:mccl"
 
 
 class SubCmd(StrEnum):
@@ -192,7 +192,7 @@ def build_common_components(
             root_dir=root_dir,
             cmd=cli_context.remote_cmd,
             cluster=cli_context.cluster,
-            nccl_debug=True,
+            mccl_debug=True,
             flight_recorder=flight_recorder,
             beaker_image=beaker_image,
             num_nodes=num_nodes,
@@ -261,7 +261,7 @@ def _build_required_callbacks(common: CommonComponents) -> Dict[str, Callback]:
     }
     if common.launch is not None:
         callbacks["beaker"] = BeakerCallback()
-    if torch.cuda.is_available():
+    if torch.musa.is_available():
         callbacks["gpu_monitor"] = GPUMemoryMonitorCallback()
     return callbacks
 

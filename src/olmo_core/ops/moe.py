@@ -10,7 +10,7 @@ except (ImportError, RuntimeError):
 
 
 def _is_eligible(x):
-    return x.is_floating_point() and x.is_cuda and (x.dtype is not torch.float64)
+    return x.is_floating_point() and x.is_musa and (x.dtype is not torch.float64)
 
 
 def _cast(x, dtype):
@@ -25,7 +25,7 @@ def _cast(x, dtype):
 
 class GatherOp(torch.autograd.Function):
     @staticmethod
-    @torch.amp.custom_fwd(device_type="cuda")
+    @torch.amp.custom_fwd(device_type="musa")
     def forward(
         ctx: Any,
         x: torch.Tensor,
@@ -40,7 +40,7 @@ class GatherOp(torch.autograd.Function):
         return kernels.gather(x, indices, bin_ids, None, bins, top_k)
 
     @staticmethod
-    @torch.amp.custom_bwd(device_type="cuda")
+    @torch.amp.custom_bwd(device_type="musa")
     def backward(ctx: Any, grad: torch.Tensor):
         assert kernels is not None
         grad = grad.contiguous()
@@ -61,7 +61,7 @@ def gather(
 
 class ScatterOp(torch.autograd.Function):
     @staticmethod
-    @torch.amp.custom_fwd(device_type="cuda")
+    @torch.amp.custom_fwd(device_type="musa")
     def forward(
         ctx: Any,
         x: torch.Tensor,
@@ -79,7 +79,7 @@ class ScatterOp(torch.autograd.Function):
         return kernels.scatter(x, indices, bin_ids, weights, bins, top_k)
 
     @staticmethod
-    @torch.amp.custom_bwd(device_type="cuda")
+    @torch.amp.custom_bwd(device_type="musa")
     def backward(ctx: Any, grad: torch.Tensor):
         assert kernels is not None
 
@@ -125,7 +125,7 @@ def scatter(
 
 class BinnedGatherOp(torch.autograd.Function):
     @staticmethod
-    @torch.amp.custom_fwd(device_type="cuda")
+    @torch.amp.custom_fwd(device_type="musa")
     def forward(
         ctx: Any,
         x: torch.Tensor,
@@ -140,7 +140,7 @@ class BinnedGatherOp(torch.autograd.Function):
         return kernels.binned_gather(x, indices, None, bins, bin_size, top_k)
 
     @staticmethod
-    @torch.amp.custom_bwd(device_type="cuda")
+    @torch.amp.custom_bwd(device_type="musa")
     def backward(ctx: Any, grad: torch.Tensor):
         assert kernels is not None
         grad = grad.contiguous()
@@ -157,7 +157,7 @@ def binned_gather(
 
 class BinnedScatterOp(torch.autograd.Function):
     @staticmethod
-    @torch.amp.custom_fwd(device_type="cuda")
+    @torch.amp.custom_fwd(device_type="musa")
     def forward(
         ctx: Any,
         x: torch.Tensor,
@@ -178,7 +178,7 @@ class BinnedScatterOp(torch.autograd.Function):
         return kernels.binned_scatter(x, indices, weights, bins, top_k)
 
     @staticmethod
-    @torch.amp.custom_bwd(device_type="cuda")
+    @torch.amp.custom_bwd(device_type="musa")
     def backward(ctx: Any, grad: torch.Tensor):
         assert kernels is not None
 

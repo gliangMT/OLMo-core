@@ -5,10 +5,10 @@ import torch
 
 log = logging.getLogger(__name__)
 
-has_cuda = torch.cuda.is_available()
-has_multiple_gpus = has_cuda and torch.cuda.device_count() > 1
+has_musa = torch.musa.is_available()
+has_multiple_gpus = has_musa and torch.musa.device_count() > 1
 has_mps = torch.mps.is_available()
-compute_capability = torch.cuda.get_device_capability()[0] if has_cuda else None
+compute_capability = torch.musa.get_device_capability()[0] if has_musa else None
 has_flash_attn_2 = False
 has_flash_attn_3 = False
 has_torchao = False
@@ -58,7 +58,7 @@ except ImportError:
     pass
 
 
-GPU_MARKS = (pytest.mark.gpu, pytest.mark.skipif(not has_cuda, reason="Requires a GPU"))
+GPU_MARKS = (pytest.mark.gpu, pytest.mark.skipif(not has_musa, reason="Requires a GPU"))
 
 
 def requires_gpu(func):
@@ -151,8 +151,8 @@ INIT_DEVICES = [
     pytest.param(torch.device("cpu"), id="device=CPU"),
     pytest.param(torch.device("mps"), id="device=MPS", marks=MPS_MARKS),
     pytest.param(
-        torch.device("cuda"),
-        id="device=CUDA",
+        torch.device("musa"),
+        id="device=MUSA",
         marks=GPU_MARKS,
     ),
 ]
@@ -161,8 +161,8 @@ DEVICES = [
     pytest.param(torch.device("cpu"), id="device=CPU"),
     pytest.param(torch.device("mps"), id="device=MPS", marks=MPS_MARKS),
     pytest.param(
-        torch.device("cuda"),
-        id="device=CUDA",
+        torch.device("musa"),
+        id="device=MUSA",
         marks=GPU_MARKS,
     ),
 ]
@@ -171,8 +171,8 @@ DEVICES = [
 BACKENDS = [
     pytest.param("gloo", id="backend=GLOO"),
     pytest.param(
-        "cuda:nccl,cpu:gloo",
-        id="backend=NCCL",
+        "musa:mccl,cpu:gloo",
+        id="backend=MCCL",
         marks=MULTI_GPU_MARKS,
     ),
 ]

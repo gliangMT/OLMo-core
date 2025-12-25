@@ -38,10 +38,10 @@ def test_binned_gather(sl: int, hs: int, ne: int, top_k: int):
     ec = (sl * top_k) // ne
 
     # Create the data and indices.
-    x = torch.randn((sl, hs)).cuda().half()
+    x = torch.randn((sl, hs)).musa().half()
 
     # Randomly assign tokens to experts.
-    top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+    top_expert = torch.randint(0, ne, (sl * top_k,)).musa().int()
     _, indices = torch.sort(top_expert)
     indices = indices.int()
     bins = torch.cumsum(torch.histc(top_expert, ne, min=0, max=ne - 1), 0).int()
@@ -64,7 +64,7 @@ def test_binned_gather(sl: int, hs: int, ne: int, top_k: int):
                 index = indices_np[start + j] // top_k
                 out[i, j, :] = x_np[index, :]
             start = end
-        return torch.from_numpy(out).cuda().half()
+        return torch.from_numpy(out).musa().half()
 
     out = ops.binned_gather(x, indices, bins, ec, top_k)
     expected_out = binned_gather(x, indices, bins, ec, top_k)
@@ -103,16 +103,16 @@ def test_binned_scatter(sl: int, hs: int, ne: int, top_k: int):
     ec = (sl * top_k) // ne
 
     # Create the data and indices.
-    x = torch.randn((sl, hs)).cuda().half()
+    x = torch.randn((sl, hs)).musa().half()
 
     # Randomly assign tokens to experts.
-    top_expert = torch.randint(0, ne, (sl * top_k,)).cuda().int()
+    top_expert = torch.randint(0, ne, (sl * top_k,)).musa().int()
     _, indices = torch.sort(top_expert)
     indices = indices.int()
     bins = torch.cumsum(torch.histc(top_expert, ne, min=0, max=ne - 1), 0).int()
 
     # Sample weights for the scatter reduce.
-    weights = torch.rand((sl * top_k,)).cuda().half()
+    weights = torch.rand((sl * top_k,)).musa().half()
 
     x = ops.binned_gather(x, indices, bins, ec, top_k)
 
@@ -138,7 +138,7 @@ def test_binned_scatter(sl: int, hs: int, ne: int, top_k: int):
 
                 out[index, :] += scale * x_np[i, j, :]
             start = end
-        return torch.from_numpy(out).cuda().half()
+        return torch.from_numpy(out).musa().half()
 
     out = ops.binned_scatter(x, indices, weights, bins, top_k)
     expected_out = binned_scatter(x, indices, weights, bins, top_k)

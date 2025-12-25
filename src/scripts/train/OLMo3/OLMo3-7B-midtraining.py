@@ -34,7 +34,7 @@ def build_experiment_config(cli_context: CliContext) -> ExperimentConfig:
         root_dir=root_dir,
         workspace="ai2/olmo-3-microanneals",
         num_nodes=16,
-        nccl_debug=True,
+        mccl_debug=True,
         # override priority from the CLI eg `--launch.priority=high`
     )
 

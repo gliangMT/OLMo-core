@@ -68,10 +68,10 @@ class SpeedMonitorCallback(Callback):
 
         if (
             self.device_peak_flops is None
-            and self.trainer.device.type == "cuda"
+            and self.trainer.device.type == "musa"
             and isinstance(self.trainer.train_module, TransformerTrainModule)
         ):
-            device_name = torch.cuda.get_device_name(self.trainer.device)
+            device_name = torch.musa.get_device_name(self.trainer.device)
 
             tm = self.trainer.train_module
             using_half_precision = tm.autocast_precision == torch.bfloat16 or (

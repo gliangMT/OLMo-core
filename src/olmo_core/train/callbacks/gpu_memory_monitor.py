@@ -22,53 +22,53 @@ class GPUMemoryMonitorCallback(Callback):
     @property
     def device(self) -> torch.device:
         return (
-            torch.device("cuda")
+            torch.device("musa")
             if self.device_id is None
-            else torch.device(f"cuda:{self.device_id}")
+            else torch.device(f"musa:{self.device_id}")
         )
 
     @property
     def device_name(self) -> str:
-        return torch.cuda.get_device_name(self.device)
+        return torch.musa.get_device_name(self.device)
 
     @property
     def device_capacity(self) -> int:
-        return torch.cuda.get_device_properties(self.device).total_memory
+        return torch.musa.get_device_properties(self.device).total_memory
 
     def pre_train(self):
-        torch.cuda.reset_peak_memory_stats()
-        torch.cuda.empty_cache()
+        torch.musa.reset_peak_memory_stats()
+        torch.musa.empty_cache()
         log.info(
             f"GPU capacity: {self.device_name} with {self._to_gib(self.device_capacity):.2f}GiB memory "
-            f"of which {self._to_gib(torch.cuda.memory_allocated()):.2f}GiB is currently allocated and "
-            f"{self._to_gib(torch.cuda.memory_reserved()):.2f}GiB is currently reserved."
+            f"of which {self._to_gib(torch.musa.memory_allocated()):.2f}GiB is currently allocated and "
+            f"{self._to_gib(torch.musa.memory_reserved()):.2f}GiB is currently reserved."
         )
 
     def post_step(self):
-        cuda_info = torch.cuda.memory_stats(self.device)
+        musa_info = torch.musa.memory_stats(self.device)
 
-        max_active = cuda_info["active_bytes.all.peak"]
+        max_active = musa_info["active_bytes.all.peak"]
         max_active_gib = self._to_gib(max_active)
         max_active_pct = self._to_pct(max_active)
         self.trainer.record_metric("gpu_memory/GPU active mem (GiB)", max_active_gib)
         self.trainer.record_metric("gpu_memory/GPU active mem (%)", max_active_pct)
 
-        max_reserved = cuda_info["reserved_bytes.all.peak"]
+        max_reserved = musa_info["reserved_bytes.all.peak"]
         max_reserved_gib = self._to_gib(max_reserved)
         max_reserved_pct = self._to_pct(max_reserved)
         self.trainer.record_metric("gpu_memory/GPU reserved mem (GiB)", max_reserved_gib)
         self.trainer.record_metric("gpu_memory/GPU reserved mem (%)", max_reserved_pct)
 
-        num_retries = cuda_info["num_alloc_retries"]
+        num_retries = musa_info["num_alloc_retries"]
         if num_retries > self._num_alloc_retries:
-            log.warning(f"{num_retries} CUDA memory allocation retries.")
+            log.warning(f"{num_retries} MUSA memory allocation retries.")
             self._num_alloc_retries = num_retries
 
-        num_ooms = cuda_info["num_ooms"]
+        num_ooms = musa_info["num_ooms"]
         if num_ooms > 0:
-            log.warning(f"{num_ooms} CUDA OOM errors thrown.")
+            log.warning(f"{num_ooms} MUSA OOM errors thrown.")
 
-        torch.cuda.reset_peak_memory_stats()
+        torch.musa.reset_peak_memory_stats()
 
     def _to_pct(self, memory: float) -> float:
         return 100 * memory / self.device_capacity

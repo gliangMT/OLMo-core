@@ -154,7 +154,7 @@ class AnnealingConfig(Config):
                 root_dir=root_dir,
                 cmd=[script, cmd, run_name, checkpoint, cluster, *overrides],
                 cluster=cluster,
-                nccl_debug=False,
+                mccl_debug=False,
             ),
             model=TransformerConfig.olmo2_32B(vocab_size=tokenizer_config.padded_vocab_size()),
             dataset=NumpyFSLDatasetConfig.from_data_mix(
