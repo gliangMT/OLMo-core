@@ -29,8 +29,8 @@
   </a>
 </p>
 
-## MUSA Develop
-### Installation
+# MUSA Develop
+## Installation
 ```bash
 cd OLMo-core
 pip install -e .[all]
